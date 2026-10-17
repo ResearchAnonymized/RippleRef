@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Cheap smoke: refactor 2 small Java files (single LLM each if <250 LOC).
-# Prerequisites: backend :8084, agents :8092, OpenRouter key in agents/.env
+# Prerequisites: backend :8083, agents :8091, OpenRouter key in agents/.env
 set -euo pipefail
 
-API_BASE="${API_BASE:-http://localhost:8084/api}"
-AGENTS_BASE="${AGENTS_BASE:-http://localhost:8092}"
+API_BASE="${API_BASE:-http://localhost:8083/api}"
+AGENTS_BASE="${AGENTS_BASE:-http://localhost:8091}"
 WS="${WORKSPACE_ID:-project-07aa431d}"
 
 FILES=(

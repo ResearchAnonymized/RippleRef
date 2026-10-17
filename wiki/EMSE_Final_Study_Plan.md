@@ -119,7 +119,7 @@ flowchart TB
 
 ### Phase 3 — MA implementation *(3–5 days)*
 - [ ] A2 `dependency_context.py` — wrapper → same backend as B0
-- [ ] A5 `ripple_verify.py` — wrapper → same `apply-and-verify`
+- [x] A5 `ripple_verify_ma.py` — wrapper → same `apply-and-verify`
 - [ ] Extend A3/A6 prompts (dependency + ripple report)
 - [ ] `MA_STUDY_MODE=ripple_cohort` in LangGraph
 - [ ] Import cohort to research-sample per workspace

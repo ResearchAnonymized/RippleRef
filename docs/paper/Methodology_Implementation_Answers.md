@@ -412,7 +412,7 @@ On disk after TMPDIR recovery, many MA candidates have CSV metrics restored from
 ## 3.6 Does the multi-agent workflow revise candidates after verification? How many retries?
 
 ### Implementation detail
-- **No in-graph revision loop** after `llm_verify`. Rejection flips acceptance; it does **not** automatically re-invoke `refactor`.
+- **In-graph revise loop (MA graph v2.0):** if the LLM Verification Agent rejects and the candidate differs from baseline, LangGraph routes `llm_verify` → `prepare_revise` → `refactor` (re-runs static verify + ripple + llm_verify). Bound by `MA_MAX_REVISE_LOOPS` (default **2**). Feedback from the verifier (concerns / reasoning) is appended to the editor’s prior notes.
 - **Identical-output generation retries** inside the refactor step: `max_retries = 2` → up to **3 generation attempts** (appends retry notes).
 - **Study-level pair retries** for non-terminal failures: `MA_MAX_ATTEMPTS_PER_PAIR` default **3**, logged in `logs/ma_ref_attempts.jsonl`. Terminal `failed_*` is written after max attempts; **completed rows are never overwritten**.
 

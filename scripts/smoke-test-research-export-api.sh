@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Smoke-test research export APIs (backend must be running on 8084).
+# Smoke-test research export APIs (backend must be running on 8083).
 set -euo pipefail
-API="${API_BASE:-http://localhost:8084/api}"
+API="${API_BASE:-http://localhost:8083/api}"
 USER_ID="${USER_ID:-user-2f821fe5}"
 WS_ID="${WS_ID:-project-b16f055f}"
 TMP=$(mktemp -d)

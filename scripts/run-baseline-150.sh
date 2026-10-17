@@ -11,7 +11,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck disable=SC1091
 source "$ROOT/ports.env" 2>/dev/null || true
-AGENTS_PORT="${AGENTS_PORT:-8092}"
+AGENTS_PORT="${AGENTS_PORT:-8091}"
 AGENTS_BASE="http://127.0.0.1:${AGENTS_PORT}"
 PHASE="${PHASE:-all}"
 RUN_DIR="$ROOT/.run/baseline-150"
@@ -26,7 +26,7 @@ echo "=== Baseline comparison (150-file stratified, REFINE read-only) ==="
 
 if should_run preflight || should_run all; then
   curl -sfS "$AGENTS_BASE/agents/health" >/dev/null || fail "Agents not running on $AGENTS_BASE"
-  curl -sfS "http://127.0.0.1:${BACKEND_PORT:-8084}/api/health" >/dev/null || fail "Backend not running"
+  curl -sfS "http://127.0.0.1:${BACKEND_PORT:-8083}/api/health" >/dev/null || fail "Backend not running"
   info "Preflight OK"
 fi
 

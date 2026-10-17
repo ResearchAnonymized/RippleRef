@@ -1,6 +1,8 @@
 # Dependencies & builds
 node_modules/
 .venv/
+**/venv/
+agents/.venv/
 venv/
 ENV/
 env/
@@ -41,6 +43,7 @@ __pycache__/
 *.log
 logs/
 *.pid
+.run/
 
 # Study outputs / data dumps (replication package is code-first)
 *.xlsx

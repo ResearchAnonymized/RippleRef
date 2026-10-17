@@ -158,25 +158,24 @@ mvn -pl server -am package -DskipTests
 # run ai.refact.server.RefactAIServerApplication
 ```
 
-### 3 — Agents
+### 3 — Agents (port **8091**)
 
 ```bash
-cd agents
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-./start.sh
+./start_daemon.sh start
+# or: cd agents && ./start.sh
+./start_daemon.sh status
 ```
 
-### 4 — Web UI
+### 4 — Web UI (port **3001**)
 
 ```bash
 cd web/app
-npm install
-npm run dev
+cp .env.example .env.local   # optional; study tabs are on by default
+npm install && npm run dev
 # → http://localhost:3001  →  RIPPLE-REF Study / Multi-Agent Study
 ```
 
-Step-by-step troubleshooting: [`wiki/Setup.md`](wiki/Setup.md).
+Ports: [`ports.env`](ports.env). Step-by-step: [`wiki/Setup.md`](wiki/Setup.md).
 
 > Full cohort overnight runs are **long and billable**. Start with a one-file smoke test ([`wiki/Replication-Guide.md`](wiki/Replication-Guide.md)).
 

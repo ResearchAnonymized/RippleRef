@@ -98,7 +98,7 @@ def post_pipeline_progress(api: str, phase: str, study_id: str, processed: int, 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Backfill L5 test probe on saved ripple-ref candidates")
     parser.add_argument("study_id", help="e.g. ripple_ref_master or ma_ref_master")
-    parser.add_argument("--api", default=os.environ.get("BACKEND_API", "http://127.0.0.1:8084/api"))
+    parser.add_argument("--api", default=os.environ.get("BACKEND_API", "http://127.0.0.1:8083/api"))
     parser.add_argument("--max", type=int, default=None, help="Max candidates to process")
     parser.add_argument("--force", action="store_true", help="Re-run even if test_probe_status already set")
     parser.add_argument("--compile", action="store_true", help="Also run compile probe (L3)")

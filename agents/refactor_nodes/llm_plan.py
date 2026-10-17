@@ -1,14 +1,16 @@
-"""LLM Planning Agent node."""
+"""LLM Planning Agent node — distinct OpenRouter call that produces a JSON plan."""
 from __future__ import annotations
 
 from agent_registry import agent_by_node_id
+from multi_llm_agent_config import should_run_llm_plan_and_verify
 
 
 async def run_llm_plan(pipeline) -> None:
     agent = agent_by_node_id("llm_plan")
     pipeline.current_node_id = "llm_plan"
 
-    if not pipeline.hooks.is_multi_llm_agent_mode():
+    # MA study always runs planner; interactive UI needs MULTI_LLM_AGENT_MODE=full.
+    if not should_run_llm_plan_and_verify(pipeline):
         return
 
     if not pipeline.refactoring_plan or not pipeline.original.strip():

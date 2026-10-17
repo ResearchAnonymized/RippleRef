@@ -14,11 +14,11 @@ RippleRef supports **two generation modes**. They share dependency context up fr
 
 | | Single-prompt (B0-V2) | Multi-agent (P-MA) |
 |--|----------------------|--------------------|
-| Idea | One dependency-aware prompt, one rewrite | Specialized agents collaborate |
+| Idea | One dependency-aware prompt, one rewrite | Distinct Planner / Editor / Verifier LLM agents + static agents |
 | Runner | `agents/ripple_ref_study.py` | `agents/ma_ref_study.py` |
-| Orchestration | Direct LLM call | `refactor_graph.py` (LangGraph) |
-| Revision | None inside the generator | Optional revise loop |
-| Final check | Shared apply-and-verify | Shared apply-and-verify |
+| Orchestration | Direct LLM call | `refactor_graph.py` LangGraph (`build_ma_ref_graph`) |
+| Revision | None inside the generator | Verifier → `prepare_revise` → Editor (≤ `MA_MAX_REVISE_LOOPS`) |
+| Final check | Shared apply-and-verify | Shared apply-and-verify (`ripple_verify` node) |
 
 ---
 
@@ -49,16 +49,24 @@ RippleRef supports **two generation modes**. They share dependency context up fr
 | Nodes | `agents/refactor_nodes/` (`llm_plan`, edit, `llm_verify`, `ripple_verify_ma`, …) |
 | Registry | `agents/agent_registry.py` |
 
-**Steps**
+**Steps (real multi-agent — separate LLM calls)**
 
-1. Same cohort file + dependency context as B0  
-2. **Planner** proposes a refactor strategy  
-3. **Editor** produces / revises Java  
-4. **Agent verify** (static / LLM gates) — may send work back to the editor  
-5. Persist artifacts / traces  
-6. **apply-and-verify** — identical ripple path as B0  
+1. Same cohort file + dependency context as B0 (`dependency_context` node)  
+2. **Rule planner** then **LLM Planning Agent** → JSON refactor plan  
+3. **LLM Refactoring Agent** produces Java  
+4. **Static quality gates** + **Ripple Risk Verifier** (apply-and-verify)  
+5. **LLM Verification Agent** approves/rejects — on reject, **revise loop** back to the editor  
+6. Persist agent-step traces / candidate  
 
-Typical env: `MULTI_LLM_AGENT_MODE=full`, `REFACTOR_ORCHESTRATOR=langgraph`.
+Env (defaults in `start.sh` / `ma_ref_study.py`):
+
+```bash
+MULTI_LLM_AGENT_MODE=full
+REFACTOR_ORCHESTRATOR=langgraph
+MA_MAX_REVISE_LOOPS=2
+```
+
+See `agents/AGENT_ARCHITECTURE.md` for the full node table.
 
 ---
 

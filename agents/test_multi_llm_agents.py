@@ -1,7 +1,13 @@
 """Tests for multi-LLM agent mode."""
 import pytest
 
-from multi_llm_agent_config import is_multi_llm_agent_full, multi_llm_agent_mode
+from types import SimpleNamespace
+
+from multi_llm_agent_config import (
+    is_multi_llm_agent_full,
+    multi_llm_agent_mode,
+    should_run_llm_plan_and_verify,
+)
 from multi_llm_agents import _normalize_plan_items, verifier_approved
 from llm_agent_core import LLMAgentOutcome, _extract_json_block
 
@@ -15,6 +21,13 @@ def test_multi_llm_agent_mode_default_off(monkeypatch):
 def test_multi_llm_agent_mode_full(monkeypatch):
     monkeypatch.setenv("MULTI_LLM_AGENT_MODE", "full")
     assert is_multi_llm_agent_full() is True
+
+
+def test_ma_study_forces_plan_and_verify(monkeypatch):
+    monkeypatch.delenv("MULTI_LLM_AGENT_MODE", raising=False)
+    pipeline = SimpleNamespace(ma_study_mode=True)
+    assert should_run_llm_plan_and_verify(pipeline) is True
+    assert should_run_llm_plan_and_verify(SimpleNamespace(ma_study_mode=False)) is False
 
 
 def test_normalize_plan_items():

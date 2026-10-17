@@ -1,102 +1,95 @@
-# REFINE — Multi-Agent Architecture
+# RippleRef — Multi-Agent Architecture
 
 ## Overview
 
-REFINE coordinates **specialized agents** through a structured refactoring workflow. Each agent is either:
+RippleRef coordinates **specialized agents** through a **LangGraph** state machine
+(`refactor_graph.py`). Each agent is either:
 
 - **Static** — rules, backend APIs, or heuristics (no LLM)
-- **LLM** — OpenRouter or direct OpenAI / Google / Anthropic (`llm_client.py`, `llm_provider_config.py`)
+- **LLM** — a separate OpenRouter (or direct provider) chat completion
 
-Orchestration is implemented with **LangGraph** (`refactor_graph.py`, version **1.1**).  
-Canonical agent registry: `agent_registry.py`
+Canonical registry: `agent_registry.py`  
+LLM roles: `multi_llm_agents.py` (Planner / Refactorer / Verifier)
 
-## Agent pipeline (main graph)
+This is a **real multi-agent system**: three LLM roles with different prompts and
+JSON contracts, plus static agents, wired by LangGraph edges — not one prompt
+relabeled as “agents.”
+
+## Graphs
+
+### Interactive / general (v1.1)
 
 ```
 load → analyze → plan → llm_plan → feasibility
   → refactor → verify → llm_verify → [apply → compile] → report
 ```
 
+### P-MA study arm `ma_ref_master` (v2.0)
+
+```
+load → analyze → dependency_context → plan → llm_plan → feasibility
+  → refactor → verify → ripple_verify → llm_verify
+       ↑__________________________________|
+              prepare_revise (≤ MA_MAX_REVISE_LOOPS)
+  → report   (never writes the live workspace)
+```
+
 | Node | Agent | Kind | Module |
 |------|-------|------|--------|
 | `load` | File Loader | static | `refactor_pipeline.run_load` |
 | `analyze` | Code Smell Detector | static | `refactor_pipeline.run_analyze` |
-| `plan` | Refactoring Planner | static | `refactor_nodes/rule_plan.py` + `planning.py` |
+| `dependency_context` | Dependency Context | static | `refactor_nodes/dependency_context.py` |
+| `plan` | Rule Planner | static | `planning.py` |
 | `llm_plan` | LLM Planning Agent | **llm** | `refactor_nodes/llm_plan.py` |
-| `feasibility` | Size Advisor | static | `refactor_pipeline.run_feasibility` |
-| `refactor` | LLM Refactoring Agent | **llm** | `refactor_pipeline.run_refactor` → `main.call_llm_refactor` |
-| `verify` | Quality Verifier | static | `refactor_pipeline.run_verify` + `verification_gates.py` |
+| `feasibility` | Size Advisor | static | `file_size_policy.py` |
+| `refactor` | LLM Refactoring Agent | **llm** | `run_refactor` → `main.call_llm_refactor` |
+| `verify` | Quality Verifier | static | `verification_gates.py` |
+| `ripple_verify` | Ripple Risk Verifier | static | `refactor_nodes/ripple_verify_ma.py` |
 | `llm_verify` | LLM Verification Agent | **llm** | `refactor_nodes/llm_verify.py` |
-| `apply` | File Applier | static | `refactor_pipeline.run_apply` |
-| `compile` | Compilation Verifier | static | `refactor_pipeline.run_compile` |
-| `report` | Analysis Reporter | static | `refactor_pipeline.run_report_finalize` |
+| `prepare_revise` | Revise Coordinator | static | `refactor_nodes/prepare_revise.py` |
+| `apply` / `compile` | Applier / Compile | static | interactive graph only |
+| `report` | Analysis Reporter | static | `run_report_finalize` |
 
-## LLM provider integration
-
-All LLM agents route through **`llm_client.chat_completion()`**:
-
-| Provider | Direct API | OpenRouter slug |
-|----------|------------|-----------------|
-| OpenAI | `OPENAI_API_KEY` + `OPENAI_MODEL` | `OPENROUTER_MODEL_OPENAI` (e.g. `openai/gpt-5.5`) |
-| Google | `GOOGLE_API_KEY` + `GOOGLE_MODEL` | `OPENROUTER_MODEL_GOOGLE` |
-| Anthropic | `ANTHROPIC_API_KEY` + `ANTHROPIC_MODEL` | `OPENROUTER_MODEL_CLAUDE` |
-
-**Routing** (`LLM_ROUTING` in `agents/.env`):
-
-| Mode | Behavior |
-|------|----------|
-| `auto` (default) | Direct API when provider key exists; else OpenRouter |
-| `openrouter` | Always OpenRouter (one key, all models) |
-| `direct` | Always native APIs (requires per-provider keys) |
-
-Research chain config: `llm_provider_config.research_provider_chain()` → OpenAI → Google → Anthropic.
-
-## Multi-LLM agent mode
-
-Set in `agents/.env`:
+## Enabling the three LLM agents
 
 ```bash
-# off (default) — only refactor node calls LLM; llm_plan / llm_verify no-op
-MULTI_LLM_AGENT_MODE=off
-
-# full — Planner + Refactorer + Verifier each call OpenRouter per pass
-MULTI_LLM_AGENT_MODE=full
+# agents/.env
+MULTI_LLM_AGENT_MODE=full          # Planner + Refactorer + Verifier
+REFACTOR_ORCHESTRATOR=langgraph    # default
+MA_MAX_REVISE_LOOPS=2              # MA verifier→editor loops (0 = off)
 ```
 
 | Mode | LLM agents active |
 |------|-------------------|
-| `off` | Refactoring Agent only |
+| `off` | Refactoring Agent only (planner/verifier nodes no-op) |
 | `full` | Planning + Refactoring + Verification |
 
-## Research: independent parallel providers
+**MA study always runs Planner + Verifier**, even if the env is unset
+(`should_run_llm_plan_and_verify` / `ma_ref_study` setdefault).
 
-Protocol `A_frontier_parallel` uses `multi_llm_independent.py`:
+## LLM provider routing
 
-1. Rule plan on frozen baseline (shared)
-2. Per provider LangGraph subgraph:
+All LLM agents go through `llm_client.chat_completion()` / `llm_agent_core.py`.
 
-```
-llm_plan → refactor → verify → llm_verify
-```
+| `LLM_ROUTING` | Behavior |
+|---------------|----------|
+| `openrouter` | One OpenRouter key for all model slugs (recommended for replication) |
+| `auto` | Direct API when a provider key exists; else OpenRouter |
+| `direct` | Native OpenAI / Google / Anthropic keys only |
 
 ## What “rules” means (static agents)
 
-Static agents do **not** call an LLM. Examples:
-
-- **Planner (rule)** — `planning.py` selects smells by severity and maps to Fowler techniques
-- **Size Advisor** — line/token thresholds in `file_size_policy.py`
-- **Quality Verifier** — `verification_gates.py` (API, smells, size, methods, empty catch)
-- **Smell Detector** — Java backend `ComprehensiveCodeSmellDetector`
+Static agents do **not** call an LLM. Examples: severity-based technique mapping
+(`planning.py`), size/token preflight (`file_size_policy.py`), API/smell gates
+(`verification_gates.py`), backend smell detection, apply-and-verify ripple.
 
 ## Extension points
 
-- Add a new LLM agent: implement in `multi_llm_agents.py`, add node in `refactor_graph.py`, register in `agent_registry.py`
-- Add a new static gate: extend `verification_gates.py`
-- Prompts: `agents/LLM_PROMPTS.md` and `main.py` (`call_llm_refactor`)
+- New LLM role: implement in `multi_llm_agents.py`, add a LangGraph node, register in `agent_registry.py`
+- New static gate: extend `verification_gates.py`
+- Prompts: `LLM_PROMPTS.md`, `ripple_ref_study.py`, `main.call_llm_refactor`
 
-## Not yet migrated (known)
+## Legacy
 
-- `refactor_pipeline_execute.py` — legacy monolith when `REFACTOR_ORCHESTRATOR=legacy`
-- `main._run_multi_llm_chain` — sequential chain (older path)
-
-Use **LangGraph** (`REFACTOR_ORCHESTRATOR=langgraph`, default) for the proper agent system.
+- `refactor_pipeline_execute.py` — monolith when `REFACTOR_ORCHESTRATOR=legacy`
+- Prefer LangGraph for any scientific or demo run

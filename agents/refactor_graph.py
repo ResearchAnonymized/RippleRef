@@ -1,5 +1,31 @@
 """
 LangGraph orchestration for smell-aware multi-agent refactoring (canonical path).
+
+Two compiled graphs
+-------------------
+1. ``build_refactor_graph`` (v1.1) — interactive / general UI path
+   load → analyze → plan → llm_plan → feasibility → refactor → verify →
+   llm_verify → [apply → compile | report] → report
+
+2. ``build_ma_ref_graph`` (v2.0) — P-MA study arm (``ma_ref_master``)
+   load → analyze → dependency_context → plan → llm_plan → feasibility →
+   refactor → verify → ripple_verify → llm_verify ⟲ prepare_revise → refactor
+   → report
+
+Real multi-agent (not a single prompt in disguise)
+--------------------------------------------------
+When ``MULTI_LLM_AGENT_MODE=full`` **or** ``ma_study_mode`` is set, three
+*distinct* LLM agents run via separate OpenRouter calls:
+
+- LLM Planning Agent   (``refactor_nodes/llm_plan.py``)
+- LLM Refactoring Agent (``run_refactor`` → ``main.call_llm_refactor``)
+- LLM Verification Agent (``refactor_nodes/llm_verify.py``)
+
+Plus static agents (smell detector, rule planner, size advisor, quality gates,
+ripple verifier). See ``agent_registry.py``.
+
+The MA graph may loop **verifier → prepare_revise → refactor** up to
+``MA_MAX_REVISE_LOOPS`` times (default 2) when the LLM verifier rejects.
 """
 
 from __future__ import annotations
@@ -21,11 +47,19 @@ GRAPH_VERSION = "1.1"
 MA_GRAPH_VERSION = "2.0"
 ORCHESTRATOR_ENV = "REFACTOR_ORCHESTRATOR"
 MA_STUDY_MODE_ENV = "MA_STUDY_MODE"
+MA_MAX_REVISE_ENV = "MA_MAX_REVISE_LOOPS"
 
 
 class GraphState(TypedDict, total=False):
     pipeline: PipelineExecution
     error: str
+
+
+def _max_revise_loops() -> int:
+    try:
+        return max(0, int(os.environ.get(MA_MAX_REVISE_ENV, "2") or "2"))
+    except ValueError:
+        return 2
 
 
 def _route_after_feasibility(state: GraphState) -> Literal["refactor", "report"]:
@@ -36,9 +70,19 @@ def _route_after_feasibility(state: GraphState) -> Literal["refactor", "report"]
     return "report"
 
 
-def _route_after_llm_verify(state: GraphState) -> Literal["apply", "report"]:
+def _route_after_llm_verify(state: GraphState) -> Literal["revise", "apply", "report"]:
+    """After LLM verify: apply, finish report, or loop back to the editor (MA)."""
     pipeline = state["pipeline"]
     if getattr(pipeline, "ma_study_mode", False):
+        # Study mode never writes the workspace; may revise then report.
+        can_revise = (
+            not pipeline.accept
+            and int(getattr(pipeline, "revise_count", 0) or 0) < _max_revise_loops()
+            and (pipeline.candidate or "").strip() != (pipeline.original or "").strip()
+            and not getattr(pipeline, "llm_pipeline_failed", False)
+        )
+        if can_revise:
+            return "revise"
         return "report"
     if pipeline.accept and not pipeline.research_independent:
         return "apply"
@@ -46,13 +90,14 @@ def _route_after_llm_verify(state: GraphState) -> Literal["apply", "report"]:
 
 
 def build_ma_ref_graph():
-    """LangGraph v2.0 for ma_ref_master — dependency context + ripple verify; never writes to workspace."""
+    """LangGraph v2.0 for ma_ref_master — plan/edit/verify (+ revise) + ripple; no workspace write."""
     if not LANGGRAPH_AVAILABLE:
         raise RuntimeError("langgraph is not installed")
 
     from refactor_nodes.dependency_context import run_dependency_context
     from refactor_nodes.llm_plan import run_llm_plan
     from refactor_nodes.llm_verify import run_llm_verify
+    from refactor_nodes.prepare_revise import run_prepare_revise
     from refactor_nodes.ripple_verify_ma import run_ripple_verify_ma
     from refactor_pipeline import (
         run_analyze,
@@ -75,6 +120,7 @@ def build_ma_ref_graph():
     g.add_node("verify", _make_node("verify", run_verify))
     g.add_node("ripple_verify", _make_node("ripple_verify", run_ripple_verify_ma))
     g.add_node("llm_verify", _make_node("llm_verify", run_llm_verify))
+    g.add_node("prepare_revise", _make_node("prepare_revise", run_prepare_revise))
     g.add_node("report", _make_node("report", run_report_finalize))
 
     g.set_entry_point("load")
@@ -91,9 +137,11 @@ def build_ma_ref_graph():
     g.add_edge("verify", "ripple_verify")
     g.add_edge("ripple_verify", "llm_verify")
     g.add_conditional_edges("llm_verify", _route_after_llm_verify, {
+        "revise": "prepare_revise",
         "apply": "report",
         "report": "report",
     })
+    g.add_edge("prepare_revise", "refactor")
     g.add_edge("report", END)
     return g.compile()
 
@@ -157,6 +205,7 @@ def build_refactor_graph():
     g.add_edge("refactor", "verify")
     g.add_edge("verify", "llm_verify")
     g.add_conditional_edges("llm_verify", _route_after_llm_verify, {
+        "revise": "report",  # interactive path does not revise; finish via report
         "apply": "apply",
         "report": "report",
     })
@@ -295,6 +344,8 @@ async def orchestrate_refactor(req, job_id: str, hooks: PipelineHooks) -> Dict[s
         pipeline.ma_graph_version = MA_GRAPH_VERSION
         if getattr(req, "maModelId", None):
             pipeline.provider_model = req.maModelId
+        # Guarantee real multi-agent LLM roles for the published MA arm.
+        os.environ.setdefault("MULTI_LLM_AGENT_MODE", "full")
     state: GraphState = {"pipeline": pipeline}
 
     graph = get_ma_compiled_graph() if pipeline.ma_study_mode else get_compiled_graph()
@@ -312,7 +363,7 @@ async def orchestrate_refactor(req, job_id: str, hooks: PipelineHooks) -> Dict[s
                     "type": "graph_node",
                     "nodeId": node_name,
                     "framework": "langgraph",
-                    "graphVersion": GRAPH_VERSION,
+                    "graphVersion": MA_GRAPH_VERSION if pipeline.ma_study_mode else GRAPH_VERSION,
                     "timestamp": hooks.now(),
                 })
         if pipeline.response_data is not None:

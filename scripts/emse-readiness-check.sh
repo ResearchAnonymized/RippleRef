@@ -35,8 +35,8 @@ check_http() {
   if [ "$code" = "200" ]; then pass "$name HTTP $code"; else fail_msg "$name HTTP $code"; fi
 }
 check_http frontend "${FRONTEND_PORT:-3001}" "/"
-check_http backend "${BACKEND_PORT:-8084}" "/api/health"
-check_http agents "${AGENTS_PORT:-8092}" "/agents/health"
+check_http backend "${BACKEND_PORT:-8083}" "/api/health"
+check_http agents "${AGENTS_PORT:-8091}" "/agents/health"
 
 echo ""
 echo "--- Cohort & fan-in ---"
@@ -68,7 +68,7 @@ else
   fail_msg "missing results_candidates.csv"
 fi
 
-api_dir=$(curl -sf "http://127.0.0.1:${BACKEND_PORT:-8084}/api/ripple-ref/studies/ripple_ref_master" 2>/dev/null \
+api_dir=$(curl -sf "http://127.0.0.1:${BACKEND_PORT:-8083}/api/ripple-ref/studies/ripple_ref_master" 2>/dev/null \
   | python3 -c "import sys,json; print(json.load(sys.stdin).get('studyDir',''))" 2>/dev/null || echo "")
 if [ "$api_dir" = "$STUDY_DIR" ]; then
   pass "API studyDir matches persistent workspace"

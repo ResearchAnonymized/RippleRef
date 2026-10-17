@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=/dev/null
 [[ -f "$ROOT/ports.env" ]] && source "$ROOT/ports.env"
-API_BASE="${API_BASE:-http://localhost:8084/api}"
+API_BASE="${API_BASE:-http://localhost:8083/api}"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

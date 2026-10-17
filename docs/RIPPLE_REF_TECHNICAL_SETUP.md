@@ -127,7 +127,7 @@ LLM call for B0: `call_ripple_ref_llm` ≈ L2015–2030 (`temperature=0.4`, size
 
 | Variable / config | Default / note | Consumed by |
 |-------------------|----------------|-------------|
-| `ports.env` → `BACKEND_PORT`, `AGENTS_PORT` | 8084 / 8092 | `ripple-ref-lib.sh` |
+| `ports.env` → `BACKEND_PORT`, `AGENTS_PORT` | 8083 / 8091 | `ripple-ref-lib.sh` |
 | `RIPPLE_REF_COMPILE_PROBE` | `0` | `ripple_ref_study.py` → runMeta |
 | `RIPPLE_REF_TEST_PROBE` | `0` | same |
 | `RIPPLE_REF_MAX_OUTPUT_TOKENS` | `2500` | `llm_prompts.compute_refactor_max_tokens` |
@@ -557,7 +557,7 @@ depDelta ≥ 5 → reason large_dependency_delta → contract High → final ris
 | Token budget | 25k LOC / 160k est tokens | ProductionClassifier | no | eligibility |
 | Resume | true | runners | `RESUME` | skip completed keys |
 | Study base path | `{workspaceTemp}/ripple_study_runs` | StudyService ctor | workspace temp | all artifacts |
-| Ports | 8084/8092 | ports.env | yes | scripts |
+| Ports | 8083/8091 | ports.env | yes | scripts |
 
 ---
 

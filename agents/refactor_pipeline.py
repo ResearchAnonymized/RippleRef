@@ -136,6 +136,9 @@ class PipelineExecution:
         self.dependency_context: Dict = {}
         self.dependency_context_text = ""
         self.ripple_report: Dict = {}
+        # Multi-agent revise loop (verifier → editor), used by ma_ref graph
+        self.revise_count = 0
+        self.revise_feedback = ""
 
     async def ensure_client(self):
         if not self._client_started:
@@ -573,6 +576,13 @@ async def run_refactor(pipeline: PipelineExecution) -> None:
                         "warning",
                     )
             else:
+                # Verifier → editor revise feedback (LangGraph prepare_revise node)
+                if getattr(pipeline, "revise_feedback", None):
+                    prior = ((prior or "") + "\n" + str(pipeline.revise_feedback)).strip()
+                    await pipeline.publish_detail(
+                        f"Editor revise pass {getattr(pipeline, 'revise_count', 0)} with verifier feedback",
+                        "info",
+                    )
                 while pipeline.retry_count <= max_retries:
                     if pipeline.retry_count > 0:
                         await pipeline.publish_detail(

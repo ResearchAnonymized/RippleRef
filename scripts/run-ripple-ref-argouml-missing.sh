@@ -87,7 +87,7 @@ echo "=== Completeness ===" | tee -a "$LOG_FILE"
 curl -sf "$API/ripple-ref/studies/$STUDY_ID/completeness" | python3 -m json.tool | tee -a "$LOG_FILE"
 python3 -c "
 import json,urllib.request
-d=json.loads(urllib.request.urlopen('http://127.0.0.1:8084/api/ripple-ref/studies/ripple_ref_master?view=summary').read())
+d=json.loads(urllib.request.urlopen('http://127.0.0.1:8083/api/ripple-ref/studies/ripple_ref_master?view=summary').read())
 ws='project-873bd0c4'
 p=ws+'|'
 ok=sum(1 for k in d.get('completedCandidates',[]) if k.startswith(p))

@@ -51,7 +51,7 @@
 | **Must not** | Invent dependencies; must match B0-V2 facts for fair RQ3 comparison |
 | **Consumers** | Rule Planner, LLM Planner, LLM Refactorer, Ripple Risk Verifier |
 | **RQ** | **RQ1** (primary), constrains RQ3–5 |
-| **Code** | `refactor_nodes/dependency_context.py` *(to build)* |
+| **Code** | `refactor_nodes/dependency_context.py`  |
 
 ---
 
@@ -96,7 +96,7 @@
 | **Mechanism** | `RippleRefRippleVerifier` + `RippleRefCallerImpactAnalyzer` — **no LLM** |
 | **Must not** | Accept/reject on its own in isolation — feeds A6 + Reporter |
 | **RQ** | **RQ2–RQ5** (core dependent variable) |
-| **Code** | `refactor_nodes/ripple_verify.py` *(to build)* |
+| **Code** | `refactor_nodes/ripple_verify_ma.py` |
 
 ---
 

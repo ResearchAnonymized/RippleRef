@@ -276,7 +276,7 @@ export async function rippleFetch<T>(path: string, init?: RequestInit): Promise<
     const msg = e instanceof Error ? e.message : String(e);
     throw new Error(
       msg.includes('fetch')
-        ? 'Backend unreachable — ensure Java server is running on port 8084 and hard-refresh the page.'
+        ? 'Backend unreachable — ensure Java server is running on port 8083 and hard-refresh the page.'
         : msg
     );
   }
@@ -288,7 +288,7 @@ export async function rippleFetch<T>(path: string, init?: RequestInit): Promise<
 }
 
 export function agentsBase(): string {
-  const port = process.env.NEXT_PUBLIC_AGENTS_PORT || '8092';
+  const port = process.env.NEXT_PUBLIC_AGENTS_PORT || '8091';
   return `http://127.0.0.1:${port}`;
 }
 

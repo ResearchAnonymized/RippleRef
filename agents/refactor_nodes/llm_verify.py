@@ -1,7 +1,8 @@
-"""LLM Verification Agent node."""
+"""LLM Verification Agent node — distinct OpenRouter call that approves/rejects."""
 from __future__ import annotations
 
 from agent_registry import agent_by_node_id
+from multi_llm_agent_config import should_run_llm_plan_and_verify
 from verification_gates import apply_llm_verifier_to_accept
 
 
@@ -9,7 +10,8 @@ async def run_llm_verify(pipeline) -> None:
     agent = agent_by_node_id("llm_verify")
     pipeline.current_node_id = "llm_verify"
 
-    if not pipeline.hooks.is_multi_llm_agent_mode():
+    # MA study always runs verifier; interactive UI needs MULTI_LLM_AGENT_MODE=full.
+    if not should_run_llm_plan_and_verify(pipeline):
         return
 
     if pipeline.candidate.strip() == pipeline.original.strip():

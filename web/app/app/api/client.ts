@@ -866,7 +866,7 @@ class RefactAIClient {
       const msg = err instanceof Error ? err.message : String(err);
       throw new ApiError(
         0,
-        `PMD scan failed: cannot reach backend on port ${process.env.NEXT_PUBLIC_API_PORT || '8084'} (${msg}). Restart the backend Terminal window, then retry.`
+        `PMD scan failed: cannot reach backend on port ${process.env.NEXT_PUBLIC_API_PORT || '8083'} (${msg}). Restart the backend Terminal window, then retry.`
       );
     }
     if (!response.ok) {

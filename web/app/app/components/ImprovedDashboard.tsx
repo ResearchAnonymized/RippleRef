@@ -53,8 +53,9 @@ import { isRefineDemo } from '../lib/refineDemoMode';
 /** Research-only UI; off in REFINE production (saved Excel panels remain on dashboard). */
 const ENABLE_BASELINE_NAV =
   !isRefineDemo() && process.env.NEXT_PUBLIC_ENABLE_BASELINE_COMPARISON === '1';
+// RippleREF package: study tabs on by default (set NEXT_PUBLIC_ENABLE_RIPPLE_REF_STUDY=0 to hide)
 const ENABLE_RIPPLE_REF_NAV =
-  !isRefineDemo() && process.env.NEXT_PUBLIC_ENABLE_RIPPLE_REF_STUDY === '1';
+  !isRefineDemo() && process.env.NEXT_PUBLIC_ENABLE_RIPPLE_REF_STUDY !== '0';
 const REFINE_DEMO = isRefineDemo();
 import {
   buildWorkspaceStudyCsv,

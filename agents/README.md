@@ -1,41 +1,52 @@
-# REFINE Agents Service
+# RippleRef Agents Service
 
-Multi-agent orchestrator for Analyze → Plan → Refactor → Verify → Apply.
+LangGraph multi-agent orchestrator for Java refactoring experiments.
+
+**Two generation modes** (shared L1–L5 ripple verifier at the end):
+
+| Mode | Entry | LLM calls |
+|------|-------|-----------|
+| Single-prompt (B0) | `ripple_ref_study.py` | One rewrite |
+| Multi-agent (P-MA) | `ma_ref_study.py` → `build_ma_ref_graph` | Planner + Editor + Verifier (+ revise) |
+
+Architecture details: [AGENT_ARCHITECTURE.md](AGENT_ARCHITECTURE.md)
 
 ## Run
 
-1) Create an `.env` (or export vars) with:
-
-```
-OPENROUTER_API_KEY=YOUR_KEY
-BACKEND_BASE=http://localhost:8081/api
-OPENROUTER_MODEL=anthropic/claude-3.5-sonnet
-PORT=8091
+```bash
+cp .env.example .env   # set OPENROUTER_API_KEY
+./start.sh             # creates .venv, defaults MULTI_LLM_AGENT_MODE=full
 ```
 
-2) Install deps and run:
+Or manually:
 
-```
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port ${PORT:-8091}
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+export OPENROUTER_API_KEY=...
+export MULTI_LLM_AGENT_MODE=full
+export REFACTOR_ORCHESTRATOR=langgraph
+.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8091
 ```
 
 ## Endpoint
 
-POST `/agents/refactor-file`
+`POST /agents/refactor-file`
 
 ```json
 {
   "workspaceId": "project-xxx",
   "filePath": "src/main/java/.../MyClass.java",
-  "goals": ["reduce smells", "improve readability"]
+  "goals": ["reduce smells", "improve readability"],
+  "maStudyMode": false
 }
 ```
 
-Returns the step log, refactored content, deltas, and apply result (if applied).
+Set `"maStudyMode": true` (or use `ma_ref_study`) to run the P-MA graph with
+dependency context, ripple verify, and revise loops.
 
-## Frontend
+## Tests (no API key required)
 
-Next.js rewrite is configured to proxy `/agents/*` → `http://localhost:8091/*`.
-
-
+```bash
+.venv/bin/pytest test_refactor_graph.py test_multi_llm_agents.py test_planning_and_gates.py -q
+```

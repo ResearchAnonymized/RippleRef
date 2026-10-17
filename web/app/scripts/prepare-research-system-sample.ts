@@ -3,7 +3,7 @@
  * Pick stratified research sample (default 15 files) and persist manifest + baselines.
  *
  * Usage:
- *   API_BASE=http://127.0.0.1:8084/api npx tsx scripts/prepare-research-system-sample.ts \
+ *   API_BASE=http://127.0.0.1:8083/api npx tsx scripts/prepare-research-system-sample.ts \
  *     --workspace project-07aa431d --label "01-Johotdraw"
  */
 import type { FileInfo } from '../app/api/client';
@@ -15,7 +15,7 @@ import {
 } from '../app/lib/researchSampling';
 import { buildResearchSampleId } from '../app/lib/researchSampleStorage';
 
-const API_BASE = (process.env.API_BASE || 'http://127.0.0.1:8084/api').replace(/\/$/, '');
+const API_BASE = (process.env.API_BASE || 'http://127.0.0.1:8083/api').replace(/\/$/, '');
 
 function arg(name: string, fallback = ''): string {
   const i = process.argv.indexOf(name);

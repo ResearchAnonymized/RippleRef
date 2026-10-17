@@ -93,7 +93,7 @@ export type AgentsHealth = {
 };
 
 function agentsBase(): string {
-  const port = process.env.NEXT_PUBLIC_AGENTS_PORT ?? '8092';
+  const port = process.env.NEXT_PUBLIC_AGENTS_PORT ?? '8091';
   return `http://127.0.0.1:${port}`;
 }
 

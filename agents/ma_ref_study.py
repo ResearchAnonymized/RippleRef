@@ -3,7 +3,8 @@ MA-REF Study: LangGraph multi-agent runner for ma_ref_master (P-MA arm).
 
 Research integrity:
 - Locked cohort from ripple_ref_master (no re-sampling)
-- LangGraph MULTI_LLM_AGENT_MODE=full (3 LLM agents)
+- LangGraph with three LLM agents (Planner → Editor → Verifier) + static agents
+- Optional revise loop when the LLM verifier rejects (``MA_MAX_REVISE_LOOPS``)
 - Same apply-and-verify measurement as B0 (via Ripple Risk Verifier node)
 - Variant fixed to MA (no V1/V2 split)
 """
@@ -16,6 +17,10 @@ import traceback
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+# P-MA arm is always a real multi-agent system (plan + edit + verify LLM roles).
+os.environ.setdefault("MULTI_LLM_AGENT_MODE", "full")
+os.environ.setdefault("REFACTOR_ORCHESTRATOR", "langgraph")
 
 MA_VARIANT = "MA"
 MA_STUDY_ID_DEFAULT = "ma_ref_master"

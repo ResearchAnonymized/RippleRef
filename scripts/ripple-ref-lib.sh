@@ -14,8 +14,8 @@ ripple_ref_load_ports() {
     # shellcheck disable=SC1091
     source "$root/ports.env"
   fi
-  BACKEND_PORT="${BACKEND_PORT:-8084}"
-  AGENTS_PORT="${AGENTS_PORT:-8092}"
+  BACKEND_PORT="${BACKEND_PORT:-8083}"
+  AGENTS_PORT="${AGENTS_PORT:-8091}"
   API="http://127.0.0.1:${BACKEND_PORT}/api"
   AGENTS="http://127.0.0.1:${AGENTS_PORT}"
   RIPPLE_REF_CURL_TIMEOUT_SEC="${RIPPLE_REF_CURL_TIMEOUT_SEC:-3600}"

@@ -37,6 +37,7 @@ PIPELINE_AGENTS: List[AgentDefinition] = [
     AgentDefinition("static_verifier", "Quality Verifier", "verify", "static", "Automated gates: API, smells, size, methods"),
     AgentDefinition("ripple_verify", "Ripple Risk Verifier", "ripple_verify", "static", "Repository ripple L1–L2 via apply-and-verify"),
     AgentDefinition("llm_verifier", "LLM Verification Agent", "llm_verify", "llm", "LLM reviews diff and approves/rejects candidate"),
+    AgentDefinition("prepare_revise", "Revise Coordinator", "prepare_revise", "static", "Pack verifier feedback and loop back to the editor (MA only)"),
     AgentDefinition("apply", "File Applier", "apply", "static", "Write accepted refactor to workspace"),
     AgentDefinition("compile", "Compilation Verifier", "compile", "static", "Informational compile check via backend"),
     AgentDefinition("report", "Analysis Reporter", "report", "static", "researchMetrics, scoring, behavioral heuristics"),

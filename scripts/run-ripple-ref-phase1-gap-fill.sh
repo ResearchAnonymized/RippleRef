@@ -29,5 +29,5 @@ for n in $SYSTEMS; do
 done
 
 echo "=== Completeness ===" | tee -a "$LOG_FILE"
-curl -sf "http://127.0.0.1:8084/api/ripple-ref/studies/ripple_ref_master/completeness" | python3 -m json.tool | tee -a "$LOG_FILE"
+curl -sf "http://127.0.0.1:8083/api/ripple-ref/studies/ripple_ref_master/completeness" | python3 -m json.tool | tee -a "$LOG_FILE"
 echo "=== GAP-FILL DONE $(date -u +"%Y-%m-%d %H:%M UTC") ===" | tee -a "$LOG_FILE"

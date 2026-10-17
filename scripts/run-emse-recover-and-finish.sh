@@ -13,7 +13,7 @@ echo "=== EMSE recover+finish $(date -Iseconds) ==="
 echo "EMSE_STUDY_BASE=$EMSE_STUDY_BASE"
 
 # 1) Services
-if ! curl -sf "http://127.0.0.1:${BACKEND_PORT:-8084}/api/health" >/dev/null 2>&1; then
+if ! curl -sf "http://127.0.0.1:${BACKEND_PORT:-8083}/api/health" >/dev/null 2>&1; then
   echo "--- Starting services ---"
   bash "$ROOT/start_daemon.sh" restart
   sleep 5

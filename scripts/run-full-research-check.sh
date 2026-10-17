@@ -24,7 +24,7 @@ bash "$ROOT/scripts/audit-research-integrity.sh" || {
 
 echo ""
 echo "=== 5. API smoke (if backend up) ==="
-if curl -sf "http://127.0.0.1:${BACKEND_PORT:-8084}/api/health" >/dev/null; then
+if curl -sf "http://127.0.0.1:${BACKEND_PORT:-8083}/api/health" >/dev/null; then
   bash "$ROOT/scripts/smoke-test-research-export-api.sh" || echo "  (smoke partial — check backend logs)"
 else
   echo "  SKIP: backend not running — start with: bash start_daemon.sh start"

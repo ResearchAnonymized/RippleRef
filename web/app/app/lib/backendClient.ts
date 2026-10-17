@@ -1,7 +1,7 @@
 /** Direct Java backend URLs — bypass Next.js rewrites for long-running requests. */
 
 export function backendApiPort(): string {
-  return process.env.NEXT_PUBLIC_API_PORT || '8084';
+  return process.env.NEXT_PUBLIC_API_PORT || '8083';
 }
 
 /** In the browser, call the Java server directly (CORS enabled). SSR uses `/api` proxy. */

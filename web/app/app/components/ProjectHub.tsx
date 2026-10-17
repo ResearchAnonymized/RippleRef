@@ -8,8 +8,9 @@ import { isRefineDemo } from '../lib/refineDemoMode';
 
 const ENABLE_RESEARCH_EXPORT_HUB =
   !isRefineDemo() && process.env.NEXT_PUBLIC_ENABLE_RESEARCH_EXPORT_UI === '1';
+// RippleREF package: study panels on by default (set NEXT_PUBLIC_ENABLE_RIPPLE_REF_STUDY=0 to hide)
 const ENABLE_RIPPLE_REF_STUDY =
-  !isRefineDemo() && process.env.NEXT_PUBLIC_ENABLE_RIPPLE_REF_STUDY === '1';
+  !isRefineDemo() && process.env.NEXT_PUBLIC_ENABLE_RIPPLE_REF_STUDY !== '0';
 import {
   FolderOpen,
   Trash2,

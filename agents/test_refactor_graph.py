@@ -10,9 +10,11 @@ import pytest
 from refactor_graph import (
     GRAPH_VERSION,
     LANGGRAPH_AVAILABLE,
+    build_ma_ref_graph,
     build_refactor_graph,
     build_provider_subgraph,
     use_langgraph_orchestrator,
+    _route_after_llm_verify,
 )
 from refactor_pipeline import PipelineHooks, PipelineExecution, enrich_response_for_langgraph
 
@@ -24,6 +26,24 @@ def test_langgraph_available_and_graph_compiles():
   assert app is not None
   provider = build_provider_subgraph()
   assert provider is not None
+  ma = build_ma_ref_graph()
+  assert ma is not None
+
+
+def test_ma_route_revises_when_verifier_rejects(monkeypatch):
+  monkeypatch.setenv("MA_MAX_REVISE_LOOPS", "2")
+  pipeline = SimpleNamespace(
+    ma_study_mode=True,
+    accept=False,
+    revise_count=0,
+    candidate="class A { void m() {} }",
+    original="class A { void m(){ } }",
+    llm_pipeline_failed=False,
+    research_independent=False,
+  )
+  assert _route_after_llm_verify({"pipeline": pipeline}) == "revise"
+  pipeline.revise_count = 2
+  assert _route_after_llm_verify({"pipeline": pipeline}) == "report"
 
 
 def test_use_langgraph_orchestrator_default(monkeypatch):
