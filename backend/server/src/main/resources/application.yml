@@ -1,0 +1,106 @@
+server:
+  port: 8083
+  error:
+    include-message: always
+    include-binding-errors: always
+
+spring:
+  application:
+    name: refactai-server
+  profiles:
+    active: dev
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+refactai:
+  repo-root: ${REFACTAI_REPO_ROOT:}
+  workspace:
+    temp-dir: ${refactai.workspace.temp-dir:${java.io.tmpdir}/refactai/workspaces}
+    max-size: 1GB
+    cleanup-interval: 3600000 # 1 hour
+  assessment:
+    max-duration: 300000 # 5 minutes
+    parallel-detectors: 8 # increase parallelism for faster analysis
+  transforms:
+    max-preview-size: 1048576 # 1MB
+    dry-run-enabled: true
+  verification:
+    compile-timeout: 60000 # 1 minute
+    test-timeout: 300000 # 5 minutes
+    style-check-enabled: true
+  security:
+    local-first: true
+    redaction-enabled: false
+    provenance-logging: true
+  llm:
+    openrouter:
+      api-key: ${OPENROUTER_API_KEY:}
+      base-url: https://openrouter.ai/api/v1
+      timeout-seconds: 30
+      max-retries: 3
+      rate-limit-per-minute: 60
+    models:
+      primary-model: openai/gpt-5.5
+      fallback-model1: anthropic/claude-opus-4.8
+      fallback-model2: google/gemini-3.1-pro-preview
+      model-configs:
+        openai/gpt-5.5:
+          cost-per-token: 0.00003
+          max-tokens: 8192
+          temperature: 0.7
+          description: "GPT-5.5 for complex reasoning and code generation"
+          capabilities: ["code-generation", "analysis", "refactoring", "documentation"]
+        anthropic/claude-opus-4.8:
+          cost-per-token: 0.000015
+          max-tokens: 8192
+          temperature: 0.7
+          description: "Claude Opus 4.8 for code analysis and documentation"
+          capabilities: ["code-analysis", "documentation", "refactoring", "explanation"]
+        google/gemini-3.1-pro-preview:
+          cost-per-token: 0.00001
+          max-tokens: 8192
+          temperature: 0.7
+          description: "Gemini 3.1 Pro for advanced reasoning and coding"
+          capabilities: ["code-generation", "analysis", "fast-response"]
+    security:
+      enable-code-redaction: true
+      sensitive-patterns:
+        - "(?i)(password|passwd|pwd)\\s*[:=]\\s*[\"']?[^\\s\"']+[\"']?"
+        - "(?i)(api[_-]?key|apikey)\\s*[:=]\\s*[\"']?[^\\s\"']+[\"']?"
+        - "(?i)(secret|token)\\s*[:=]\\s*[\"']?[^\\s\"']+[\"']?"
+      require-user-consent: true
+      enable-audit-logging: true
+      max-code-length: 50000
+    cost:
+      daily-limit: 10.0
+      monthly-limit: 100.0
+      enable-cost-tracking: true
+      enable-cost-warnings: true
+      warning-threshold: 0.8
+
+logging:
+  level:
+    ai.refact: DEBUG
+    org.springframework.web: INFO
+    org.eclipse.jgit: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/refactai-server.log
+    max-size: 10MB
+    max-history: 30
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized

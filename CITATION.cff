@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+title: "RippleREF: Repository-level ripple safety for LLM-generated Java refactoring"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: "TBD"
+    given-names: "TBD"
+repository-code: "https://github.com/ResearchAnonymized/RippleRef"
+license: MIT
+abstract: >-
+  RippleREF provides a Web UI, REST API, Python agents (single-prompt and
+  LangGraph multi-agent), and scripts to run dependency-aware Java refactoring
+  experiments with L1–L5 ripple verification.
+# Update when the paper has a DOI:
+# preferred-citation:
+#   type: article
+#   title: "..."
+#   authors: [...]
+#   year: 2026
+#   doi: "..."

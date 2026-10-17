@@ -1,0 +1,137 @@
+package ai.refact.server.service;
+
+import ai.refact.api.ProjectContext;
+import ai.refact.engine.SimpleSecurityService;
+import ai.refact.engine.model.SimpleSecurityVulnerability;
+import ai.refact.server.model.SecurityAnalysisResult;
+import ai.refact.server.model.FileSecurityAnalysis;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.nio.file.Path;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * Simple security analysis service for demonstration purposes.
+ * This provides basic security analysis functionality.
+ */
+@Service
+public class SimpleSecurityAnalysisService {
+
+    private static final Logger logger = LoggerFactory.getLogger(SimpleSecurityAnalysisService.class);
+
+    @Autowired
+    private SimpleSecurityService simpleSecurityService;
+
+    /**
+     * Analyze workspace for security vulnerabilities.
+     */
+    public SecurityAnalysisResult analyzeWorkspace(ProjectContext projectContext) {
+        logger.info("Starting security analysis for workspace: {}", projectContext.root().getFileName());
+
+        try {
+            Map<String, Object> analysisResult = simpleSecurityService.analyzeProject(projectContext);
+            
+            SecurityAnalysisResult result = new SecurityAnalysisResult();
+            result.setWorkspaceId(projectContext.root().getFileName().toString());
+            result.setTotalVulnerabilities((Integer) analysisResult.get("totalVulnerabilities"));
+            result.setCriticalVulnerabilities(((Long) analysisResult.get("criticalVulnerabilities")).intValue());
+            result.setHighVulnerabilities(((Long) analysisResult.get("highVulnerabilities")).intValue());
+            result.setMediumVulnerabilities(((Long) analysisResult.get("mediumVulnerabilities")).intValue());
+            result.setLowVulnerabilities(((Long) analysisResult.get("lowVulnerabilities")).intValue());
+            result.setOverallRiskScore((Double) analysisResult.get("overallRiskScore"));
+            result.setSecurityGrade((String) analysisResult.get("securityGrade"));
+            result.setSecurityStatus((String) analysisResult.get("securityStatus"));
+            result.setOwaspCompliance((Double) analysisResult.get("owaspCompliance"));
+            result.setAnalysisDate((Date) analysisResult.get("assessmentDate"));
+            
+            // Convert vulnerabilities to the expected format
+            @SuppressWarnings("unchecked")
+            List<SimpleSecurityVulnerability> vulnerabilities = (List<SimpleSecurityVulnerability>) analysisResult.get("vulnerabilities");
+            result.setVulnerabilities(convertVulnerabilities(vulnerabilities));
+            
+            logger.info("Security analysis completed successfully");
+            return result;
+            
+        } catch (Exception e) {
+            logger.error("Error during security analysis", e);
+            throw new SecurityAnalysisException("Failed to analyze workspace security", e);
+        }
+    }
+
+    /**
+     * Analyze a specific file for security vulnerabilities.
+     */
+    public FileSecurityAnalysis analyzeFile(ProjectContext projectContext, String filePath) {
+        logger.info("Analyzing file for security vulnerabilities: {}", filePath);
+
+        try {
+            Map<String, Object> analysisResult = simpleSecurityService.analyzeProject(projectContext);
+            
+            @SuppressWarnings("unchecked")
+            List<SimpleSecurityVulnerability> allVulnerabilities = (List<SimpleSecurityVulnerability>) analysisResult.get("vulnerabilities");
+            
+            // Filter vulnerabilities for the specific file
+            List<SimpleSecurityVulnerability> fileVulnerabilities = allVulnerabilities.stream()
+                .filter(v -> filePath.equals(v.getFilePath()))
+                .collect(Collectors.toList());
+            
+            FileSecurityAnalysis result = new FileSecurityAnalysis();
+            result.setFilePath(filePath);
+            result.setTotalVulnerabilities(fileVulnerabilities.size());
+            result.setCriticalVulnerabilities((int) fileVulnerabilities.stream().filter(v -> "CRITICAL".equals(v.getSeverity().name())).count());
+            result.setHighVulnerabilities((int) fileVulnerabilities.stream().filter(v -> "HIGH".equals(v.getSeverity().name())).count());
+            result.setMediumVulnerabilities((int) fileVulnerabilities.stream().filter(v -> "MEDIUM".equals(v.getSeverity().name())).count());
+            result.setLowVulnerabilities((int) fileVulnerabilities.stream().filter(v -> "LOW".equals(v.getSeverity().name())).count());
+            result.setVulnerabilities(convertVulnerabilities(fileVulnerabilities));
+            result.setAnalysisDate(new Date());
+            
+            logger.info("File security analysis completed for: {}", filePath);
+            return result;
+            
+        } catch (Exception e) {
+            logger.error("Error analyzing file: {}", filePath, e);
+            throw new SecurityAnalysisException("Failed to analyze file security", e);
+        }
+    }
+
+    private List<ai.refact.server.model.SecurityVulnerability> convertVulnerabilities(List<SimpleSecurityVulnerability> simpleVulns) {
+        return simpleVulns.stream().map(this::convertVulnerability).collect(Collectors.toList());
+    }
+
+    private ai.refact.server.model.SecurityVulnerability convertVulnerability(SimpleSecurityVulnerability simple) {
+        ai.refact.server.model.SecurityVulnerability vuln = new ai.refact.server.model.SecurityVulnerability();
+        vuln.setId(simple.getId());
+        vuln.setName(simple.getName());
+        vuln.setType(simple.getType().name());
+        vuln.setSeverity(simple.getSeverity().name());
+        vuln.setCategory(simple.getCategory().name());
+        vuln.setFilePath(simple.getFilePath());
+        vuln.setLineNumber(simple.getLineNumber());
+        vuln.setDescription(simple.getDescription());
+        vuln.setRecommendation(simple.getRecommendation());
+        vuln.setCweId(simple.getCweId());
+        vuln.setOwaspTop10(simple.getOwaspTop10());
+        vuln.setDetectedAt(simple.getDetectedAt());
+        vuln.setStatus(simple.getStatus());
+        vuln.setCvssScore(simple.getCvssScore());
+        vuln.setCodeSnippet(simple.getCodeSnippet());
+        vuln.setBusinessImpact(simple.getBusinessImpact());
+        vuln.setTechnicalImpact(simple.getTechnicalImpact());
+        vuln.setExploitability(simple.getExploitability());
+        vuln.setRemediationEffort(simple.getRemediationEffort());
+        return vuln;
+    }
+
+    /**
+     * Custom exception for security analysis errors.
+     */
+    public static class SecurityAnalysisException extends RuntimeException {
+        public SecurityAnalysisException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+}

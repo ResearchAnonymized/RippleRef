@@ -1,0 +1,987 @@
+package ai.refact.server.controller;
+
+import ai.refact.api.*;
+import ai.refact.server.service.ProjectService;
+import ai.refact.server.service.RefactoringService;
+import ai.refact.server.service.CodeAnalysisService;
+import ai.refact.server.service.SecurityAnalysisService;
+import ai.refact.server.service.DependencyAnalysisService;
+import ai.refact.engine.model.CodeSmell;
+import ai.refact.engine.model.SmellSeverity;
+import ai.refact.server.model.FileAnalysis;
+import ai.refact.server.model.EnhancedAnalysisRequest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+/**
+ * REST API controller for RefactAI operations.
+ * Provides endpoints for project management, assessment, planning, and refactoring.
+ */
+@RestController
+@RequestMapping("/")
+@CrossOrigin(origins = "*")
+public class RefactAIController {
+    
+    private static final Logger logger = LoggerFactory.getLogger(RefactAIController.class);
+    
+    private final ProjectService projectService;
+    private final RefactoringService refactoringService;
+    private final CodeAnalysisService codeAnalysisService;
+    private final SecurityAnalysisService securityAnalysisService;
+    private final DependencyAnalysisService dependencyAnalysisService;
+    
+    @Autowired
+    public RefactAIController(ProjectService projectService, RefactoringService refactoringService, 
+                            CodeAnalysisService codeAnalysisService, SecurityAnalysisService securityAnalysisService,
+                            DependencyAnalysisService dependencyAnalysisService) {
+        this.projectService = projectService;
+        this.refactoringService = refactoringService;
+        this.codeAnalysisService = codeAnalysisService;
+        this.securityAnalysisService = securityAnalysisService;
+        this.dependencyAnalysisService = dependencyAnalysisService;
+    }
+    
+    /**
+     * Upload a ZIP file containing a Java project.
+     */
+    @PostMapping("/workspaces")
+    public ResponseEntity<Workspace> uploadProject(@RequestParam("file") MultipartFile file) {
+        try {
+            logger.info("Uploading project file: {}", file.getOriginalFilename());
+            
+            ProjectContext projectContext = projectService.uploadProject(file);
+            
+            Workspace workspace = new Workspace(
+                projectContext.getProperty("projectId", "unknown"),
+                projectContext.root().getFileName().toString(),
+                projectContext.sourceFiles().size(),
+                projectContext.testFiles().size(),
+                System.currentTimeMillis()
+            );
+            
+            return ResponseEntity.ok(workspace);
+            
+        } catch (IOException e) {
+            logger.error("Failed to upload project", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * Clone a Git repository.
+     */
+    @PostMapping("/workspaces/git")
+    public ResponseEntity<Workspace> cloneGitRepository(@RequestBody Map<String, String> request) {
+        try {
+            String gitUrl = request.get("gitUrl");
+            String branch = request.getOrDefault("branch", "main");
+            
+            logger.info("Cloning Git repository: {} (branch: {})", gitUrl, branch);
+            
+            ProjectContext projectContext = projectService.cloneGitRepository(gitUrl, branch);
+            
+            Workspace workspace = new Workspace(
+                projectContext.getProperty("projectId", "unknown"),
+                projectContext.root().getFileName().toString(),
+                projectContext.sourceFiles().size(),
+                projectContext.testFiles().size(),
+                System.currentTimeMillis()
+            );
+            
+            return ResponseEntity.ok(workspace);
+            
+        } catch (IOException e) {
+            logger.error("Failed to clone Git repository", e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * Get workspace information.
+     */
+    @GetMapping("/workspaces/{id}")
+    public ResponseEntity<Workspace> getWorkspace(@PathVariable String id) {
+        try {
+            ProjectContext projectContext = projectService.getProject(id);
+            
+            Workspace workspace = new Workspace(
+                id,
+                projectContext.root().getFileName().toString(),
+                projectContext.sourceFiles().size(),
+                projectContext.testFiles().size(),
+                System.currentTimeMillis()
+            );
+            
+            return ResponseEntity.ok(workspace);
+            
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * List all workspaces.
+     * ALWAYS returns empty list - no auto-loading of previous projects.
+     */
+    @GetMapping("/workspaces")
+    public ResponseEntity<List<Workspace>> listWorkspaces() {
+        // ALWAYS return empty list - no auto-loading, no persistence
+        logger.info("Listing workspaces - ALWAYS returning empty list for fresh start");
+        return ResponseEntity.ok(new ArrayList<>());
+    }
+    
+    /**
+     * Clear all workspaces for fresh start.
+     * This ensures complete cleanup of current session.
+     */
+    @PostMapping("/workspaces/clear")
+    public ResponseEntity<Map<String, String>> clearAllWorkspaces() {
+        try {
+            logger.info("Clearing all workspaces for fresh start");
+            projectService.clearAllProjects();
+            
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "All workspaces cleared successfully");
+            response.put("sessionId", projectService.getSessionId());
+            response.put("timestamp", String.valueOf(System.currentTimeMillis()));
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Failed to clear workspaces", e);
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to clear workspaces: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+    
+    /**
+     * Get session information.
+     */
+    @GetMapping("/session/info")
+    public ResponseEntity<Map<String, String>> getSessionInfo() {
+        Map<String, String> sessionInfo = new HashMap<>();
+        sessionInfo.put("sessionId", projectService.getSessionId());
+        sessionInfo.put("timestamp", String.valueOf(System.currentTimeMillis()));
+        sessionInfo.put("status", "active");
+        return ResponseEntity.ok(sessionInfo);
+    }
+    
+    /**
+     * Delete a workspace.
+     */
+    @DeleteMapping("/workspaces/{id}")
+    public ResponseEntity<Void> deleteWorkspace(@PathVariable String id) {
+        try {
+            projectService.deleteProject(id);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("Failed to delete workspace: {}", id, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * Get all files in a workspace with their information.
+     */
+    @GetMapping("/workspaces/{id}/files")
+    public ResponseEntity<List<FileInfo>> getWorkspaceFiles(@PathVariable String id) {
+        try {
+            logger.info("Getting files for workspace: {}", id);
+            
+            List<FileInfo> files = projectService.getProjectFiles(id);
+            
+            return ResponseEntity.ok(files);
+            
+        } catch (Exception e) {
+            logger.error("Failed to get files for workspace: {}", id, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/workspaces/{id}/files/content")
+    public ResponseEntity<Map<String, Object>> getFileContent(
+            @PathVariable String id,
+            @RequestParam String filePath) {
+        try {
+            logger.info("Getting content for file: {} in workspace: {}", filePath, id);
+            
+            // Decode the file path in case it's URL encoded
+            String decodedFilePath = java.net.URLDecoder.decode(filePath, "UTF-8");
+            logger.info("Decoded file path: {}", decodedFilePath);
+            
+            String content = projectService.getFileContent(id, decodedFilePath);
+            Map<String, Object> response = Map.of(
+                "content", content,
+                "filePath", decodedFilePath,
+                "workspaceId", id
+            );
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Failed to get content for file: {} in workspace: {}", filePath, id, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * Perform assessment on a project.
+     */
+    @PostMapping("/workspaces/{id}/assess")
+    public ResponseEntity<Assessment> assessProject(@PathVariable String id, @RequestBody AssessmentRequest request) {
+        try {
+            logger.info("Starting assessment for workspace: {}", id);
+            
+            ProjectContext projectContext = projectService.getProject(id);
+            Assessment assessment = refactoringService.assessProject(projectContext);
+            
+            return ResponseEntity.ok(assessment);
+            
+        } catch (Exception e) {
+            logger.error("Assessment failed for workspace: {}", id, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * Get assessment results.
+     */
+    @GetMapping("/workspaces/{id}/assessment")
+    public ResponseEntity<Assessment> getAssessment(@PathVariable String id) {
+        try {
+            Assessment assessment = refactoringService.getAssessment(id);
+            return ResponseEntity.ok(assessment);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * Generate refactoring plan.
+     */
+    @PostMapping("/workspaces/{id}/plan")
+    public ResponseEntity<Plan> generatePlan(@PathVariable String id, @RequestBody PlanRequest request) {
+        try {
+            logger.info("Generating refactoring plan for workspace: {}", id);
+            
+            Plan plan = refactoringService.generatePlan(id, request);
+            
+            return ResponseEntity.ok(plan);
+            
+        } catch (Exception e) {
+            logger.error("Plan generation failed for workspace: {}", id, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * Get refactoring plan.
+     */
+    @GetMapping("/workspaces/{id}/plan")
+    public ResponseEntity<Plan> getPlan(@PathVariable String id) {
+        try {
+            Plan plan = refactoringService.getPlan(id);
+            return ResponseEntity.ok(plan);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * Apply refactoring plan.
+     */
+    @PostMapping("/workspaces/{id}/apply")
+    public ResponseEntity<ApplyResult> applyPlan(@PathVariable String id, @RequestBody ApplyRequest request) {
+        try {
+            logger.info("Applying refactoring plan for workspace: {}", id);
+            
+            ApplyResult result = refactoringService.applyPlan(id, request);
+            
+            return ResponseEntity.ok(result);
+            
+        } catch (Exception e) {
+            logger.error("Plan application failed for workspace: {}", id, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * Get project artifacts (assessment report, plan, etc.).
+     */
+    @GetMapping("/workspaces/{id}/artifacts/{name}")
+    public ResponseEntity<String> getArtifact(@PathVariable String id, @PathVariable String name) {
+        try {
+            // Mock artifact generation - in production, generate actual reports
+            String artifact = switch (name) {
+                case "assessment.json" -> generateAssessmentJson(id);
+                case "assessment.html" -> generateAssessmentHtml(id);
+                case "plan.json" -> generatePlanJson(id);
+                case "patch.diff" -> generatePatchDiff(id);
+                case "impact.json" -> generateImpactJson(id);
+                default -> throw new IllegalArgumentException("Unknown artifact: " + name);
+            };
+            
+            return ResponseEntity.ok(artifact);
+            
+        } catch (Exception e) {
+            logger.error("Failed to generate artifact {} for workspace: {}", name, id, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * Health check endpoint.
+     */
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> health() {
+        Map<String, Object> health = Map.of(
+            "status", "UP",
+            "timestamp", System.currentTimeMillis(),
+            "version", "0.1.0-SNAPSHOT"
+        );
+        
+        return ResponseEntity.ok(health);
+    }
+    
+    // Mock artifact generation methods
+    private String generateAssessmentJson(String projectId) {
+        return """
+            {
+                "projectId": "%s",
+                "timestamp": %d,
+                "status": "completed"
+            }
+            """.formatted(projectId, System.currentTimeMillis());
+    }
+    
+    private String generateAssessmentHtml(String projectId) {
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head><title>Assessment Report - %s</title></head>
+            <body>
+                <h1>Assessment Report</h1>
+                <p>Project: %s</p>
+                <p>Generated: %d</p>
+            </body>
+            </html>
+            """.formatted(projectId, projectId, System.currentTimeMillis());
+    }
+    
+    private String generatePlanJson(String projectId) {
+        return """
+            {
+                "projectId": "%s",
+                "timestamp": %d,
+                "status": "generated"
+            }
+            """.formatted(projectId, System.currentTimeMillis());
+    }
+    
+    private String generatePatchDiff(String projectId) {
+        return """
+            diff --git a/src/main/java/Example.java b/src/main/java/Example.java
+            index 1234567..abcdefg 100644
+            --- a/src/main/java/Example.java
+            +++ b/src/main/java/Example.java
+            @@ -10,6 +10,7 @@ public class Example {
+                 // Refactored code
+                 public void improvedMethod() {
+                     // Better implementation
+            +        // Added by RefactAI
+                 }
+            """;
+    }
+    
+    private String generateImpactJson(String projectId) {
+        return """
+            {
+                "projectId": "%s",
+                "timestamp": %d,
+                "impact": {
+                    "maintainability": 85.5,
+                    "complexity": -15.2,
+                    "testCoverage": 78.3
+                }
+            }
+            """.formatted(projectId, System.currentTimeMillis());
+    }
+    
+    /**
+     * Analyze a specific file for code smells and technical debt.
+     */
+    @GetMapping("/workspaces/{id}/files/analysis")
+    public ResponseEntity<ai.refact.server.model.FileAnalysis> analyzeFile(
+            @PathVariable String id,
+            @RequestParam String filePath) {
+        try {
+            logger.info("Analyzing file: {} in workspace: {}", filePath, id);
+            
+            Path projectDir = projectService.getProjectDirectory(id);
+            Path fullPath = projectDir.resolve(filePath);
+            
+            ai.refact.server.model.FileAnalysis analysis = codeAnalysisService.analyzeFile(fullPath);
+            return ResponseEntity.ok(analysis);
+            
+        } catch (Exception e) {
+            logger.error("Failed to analyze file: {} in workspace: {}", filePath, id, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * Analyze entire workspace for code smells and technical debt.
+     */
+    @PostMapping("/workspaces/{id}/analyze")
+    public ResponseEntity<ai.refact.server.model.CodeAnalysisResult> analyzeWorkspace(@PathVariable String id) {
+        try {
+            logger.info("Starting comprehensive analysis for workspace: {}", id);
+            
+            ProjectContext projectContext = projectService.getProject(id);
+            List<Path> javaFiles = new ArrayList<>(projectContext.sourceFiles());
+            
+            ai.refact.server.model.CodeAnalysisResult result = codeAnalysisService.analyzeWorkspace(id, javaFiles);
+            return ResponseEntity.ok(result);
+            
+        } catch (Exception e) {
+            logger.error("Failed to analyze workspace: {}", id, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * Analyze a specific file for security vulnerabilities.
+     */
+    @GetMapping("/workspaces/{id}/files/security")
+    public ResponseEntity<ai.refact.server.model.FileSecurityAnalysis> analyzeFileSecurity(
+            @PathVariable String id,
+            @RequestParam String filePath) {
+        try {
+            logger.info("Analyzing file for security vulnerabilities: {} in workspace: {}", filePath, id);
+            
+            ai.refact.server.model.FileSecurityAnalysis analysis = securityAnalysisService.analyzeFile(id, filePath);
+            return ResponseEntity.ok(analysis);
+            
+        } catch (Exception e) {
+            logger.error("Failed to analyze file for security: {} in workspace: {}", filePath, id, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * Analyze entire workspace for security vulnerabilities.
+     */
+    @PostMapping("/workspaces/{id}/security")
+    public ResponseEntity<ai.refact.server.model.SecurityAnalysisResult> analyzeWorkspaceSecurity(@PathVariable String id) {
+        try {
+            logger.info("Starting security analysis for workspace: {}", id);
+            
+            ai.refact.server.model.SecurityAnalysisResult result = securityAnalysisService.analyzeWorkspace(id);
+            return ResponseEntity.ok(result);
+            
+        } catch (Exception e) {
+            logger.error("Failed to analyze workspace security: {}", id, e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
+     * Enhanced analysis endpoint for individual files.
+     */
+    @PostMapping("/enhanced-analysis/analyze-file")
+    public ResponseEntity<Map<String, Object>> analyzeFileEnhanced(@RequestBody EnhancedAnalysisRequest request) {
+        try {
+            logger.info("Enhanced analysis requested for file: {} in workspace: {}", 
+                       request.getFilePath(), request.getWorkspaceId());
+            
+            // Get the actual file analysis
+            Path projectDir = projectService.getProjectDirectory(request.getWorkspaceId());
+            Path fullPath = projectDir.resolve(request.getFilePath());
+            
+            ai.refact.server.model.FileAnalysis analysis = codeAnalysisService.analyzeFile(fullPath);
+            
+            // Extract real metrics from the analysis
+            Map<String, Object> fileMetrics = analysis.getMetrics();
+            List<ai.refact.engine.model.CodeSmell> smells = analysis.getSmells();
+            
+            // Calculate enhanced metrics based on real analysis
+            int cyclomaticComplexity = (Integer) fileMetrics.getOrDefault("cyclomaticComplexity", 1);
+            int cognitiveComplexity = (Integer) fileMetrics.getOrDefault("cognitiveComplexity", 1);
+            int totalLines = (Integer) fileMetrics.getOrDefault("totalLines", 0);
+            int codeLines = (Integer) fileMetrics.getOrDefault("codeLines", 0);
+            int commentLines = (Integer) fileMetrics.getOrDefault("commentLines", 0);
+            int classCount = (Integer) fileMetrics.getOrDefault("classCount", 0);
+            int methodCount = (Integer) fileMetrics.getOrDefault("methodCount", 0);
+            int fieldCount = (Integer) fileMetrics.getOrDefault("fieldCount", 0);
+            
+            // Calculate quality grade based on real metrics
+            String qualityGrade = calculateQualityGrade(cyclomaticComplexity, cognitiveComplexity, smells.size(), commentLines, codeLines);
+            int overallScore = calculateOverallScore(cyclomaticComplexity, cognitiveComplexity, smells.size(), commentLines, codeLines);
+            int refactoringPriority = calculateRefactoringPriority(smells, cyclomaticComplexity);
+            
+            // Count issues by severity
+            int criticalIssues = (int) smells.stream().filter(s -> s.getSeverity() == SmellSeverity.CRITICAL).count();
+            int majorIssues = (int) smells.stream().filter(s -> s.getSeverity() == SmellSeverity.MAJOR).count();
+            int minorIssues = (int) smells.stream().filter(s -> s.getSeverity() == SmellSeverity.MINOR).count();
+            
+            // Calculate maintainability index (0-1 scale)
+            double maintainabilityIndex = calculateMaintainabilityIndex(cyclomaticComplexity, cognitiveComplexity, smells.size(), commentLines, codeLines);
+            
+            // Calculate technical debt ratio
+            double technicalDebtRatio = analysis.getTechnicalDebtScore() / 100.0;
+            
+            Map<String, Object> metrics = new HashMap<>();
+            metrics.put("qualityGrade", qualityGrade);
+            metrics.put("overallScore", overallScore);
+            metrics.put("refactoringPriority", refactoringPriority);
+            metrics.put("cyclomaticComplexity", cyclomaticComplexity);
+            metrics.put("cognitiveComplexity", cognitiveComplexity);
+            metrics.put("maintainabilityIndex", maintainabilityIndex);
+            metrics.put("technicalDebtRatio", technicalDebtRatio);
+            metrics.put("codeSmells", smells.size());
+            metrics.put("criticalIssues", criticalIssues);
+            metrics.put("majorIssues", majorIssues);
+            metrics.put("minorIssues", minorIssues);
+            metrics.put("classCount", classCount);
+            metrics.put("methodCount", methodCount);
+            metrics.put("fieldCount", fieldCount);
+            metrics.put("totalLines", totalLines);
+            metrics.put("codeLines", codeLines);
+            metrics.put("commentLines", commentLines);
+            
+            // Generate quality insights based on real analysis
+            Map<String, Object> qualityInsights = new HashMap<>();
+            qualityInsights.put("qualityCategory", getQualityCategory(overallScore));
+            qualityInsights.put("needsAttention", criticalIssues > 0 || majorIssues > 2 || cyclomaticComplexity > 10);
+            
+            Map<String, String> specificInsights = new HashMap<>();
+            if (cyclomaticComplexity > 10) {
+                specificInsights.put("complexity", "High cyclomatic complexity detected. Consider breaking down complex methods into smaller, more manageable functions.");
+            } else if (cyclomaticComplexity > 5) {
+                specificInsights.put("complexity", "Moderate cyclomatic complexity. Monitor for potential refactoring opportunities.");
+            } else {
+                specificInsights.put("complexity", "Good cyclomatic complexity. Code is well-structured and maintainable.");
+            }
+            
+            if (commentLines == 0 && codeLines > 20) {
+                specificInsights.put("documentation", "No comments found. Consider adding Javadoc comments for public methods and complex logic.");
+            } else if (commentLines < codeLines * 0.1) {
+                specificInsights.put("documentation", "Low comment ratio. Consider adding more documentation for better code maintainability.");
+            } else {
+                specificInsights.put("documentation", "Good documentation coverage. Keep up the good work!");
+            }
+            
+            if (smells.size() > 5) {
+                specificInsights.put("codeQuality", "Multiple code smells detected. Review and refactor to improve code quality.");
+            } else if (smells.size() > 0) {
+                specificInsights.put("codeQuality", "Some code smells detected. Consider addressing them to improve maintainability.");
+            } else {
+                specificInsights.put("codeQuality", "No code smells detected. Excellent code quality!");
+            }
+            
+            qualityInsights.put("specificInsights", specificInsights);
+            
+            // Generate recommendations based on real analysis
+            Map<String, Object> recommendations = new HashMap<>();
+            recommendations.put("estimatedEffort", calculateEstimatedEffort(smells, cyclomaticComplexity));
+            
+            Map<String, String> actions = new HashMap<>();
+            if (criticalIssues > 0) {
+                actions.put("immediate", "Address " + criticalIssues + " critical issues immediately");
+            } else if (majorIssues > 0) {
+                actions.put("immediate", "Address " + majorIssues + " major issues");
+            } else {
+                actions.put("immediate", "No immediate action required");
+            }
+            
+            if (cyclomaticComplexity > 10) {
+                actions.put("shortTerm", "Refactor methods with high complexity");
+            } else if (commentLines < codeLines * 0.1) {
+                actions.put("shortTerm", "Add documentation and comments");
+            } else {
+                actions.put("shortTerm", "Continue monitoring code quality");
+            }
+            
+            actions.put("longTerm", "Maintain current quality standards and consider code reviews");
+            recommendations.put("actions", actions);
+            
+            // Convert code smells to a format suitable for frontend
+            List<Map<String, Object>> codeSmellsList = new ArrayList<>();
+            for (ai.refact.engine.model.CodeSmell smell : smells) {
+                Map<String, Object> smellMap = new HashMap<>();
+                smellMap.put("id", smell.getType().name() + "_" + System.currentTimeMillis());
+                smellMap.put("type", smell.getType().name());
+                smellMap.put("category", smell.getCategory().name());
+                smellMap.put("severity", smell.getSeverity().name());
+                smellMap.put("title", smell.getTitle());
+                smellMap.put("description", smell.getDescription());
+                smellMap.put("recommendation", smell.getRecommendation());
+                smellMap.put("startLine", smell.getStartLine());
+                smellMap.put("endLine", smell.getEndLine());
+                smellMap.put("refactoringSuggestions", smell.getRefactoringSuggestions());
+                codeSmellsList.add(smellMap);
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("filePath", request.getFilePath());
+            response.put("workspaceId", request.getWorkspaceId());
+            response.put("metrics", metrics);
+            response.put("qualityInsights", qualityInsights);
+            response.put("recommendations", recommendations);
+            response.put("codeSmells", codeSmellsList);
+            response.put("timestamp", System.currentTimeMillis());
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Enhanced analysis failed for file: {}", request.getFilePath(), e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    // Helper methods for enhanced analysis calculations
+    private String calculateQualityGrade(int cyclomaticComplexity, int cognitiveComplexity, int smellCount, int commentLines, int codeLines) {
+        int score = calculateOverallScore(cyclomaticComplexity, cognitiveComplexity, smellCount, commentLines, codeLines);
+        
+        if (score >= 90) return "A+";
+        if (score >= 85) return "A";
+        if (score >= 80) return "A-";
+        if (score >= 75) return "B+";
+        if (score >= 70) return "B";
+        if (score >= 65) return "B-";
+        if (score >= 60) return "C+";
+        if (score >= 55) return "C";
+        if (score >= 50) return "C-";
+        if (score >= 40) return "D";
+        return "F";
+    }
+    
+    private int calculateOverallScore(int cyclomaticComplexity, int cognitiveComplexity, int smellCount, int commentLines, int codeLines) {
+        int score = 100;
+        
+        // More realistic complexity scoring
+        if (cyclomaticComplexity > 20) score -= 40;
+        else if (cyclomaticComplexity > 15) score -= 30;
+        else if (cyclomaticComplexity > 10) score -= 20;
+        else if (cyclomaticComplexity > 5) score -= 10;
+        
+        // More realistic cognitive complexity scoring
+        if (cognitiveComplexity > 30) score -= 35;
+        else if (cognitiveComplexity > 20) score -= 25;
+        else if (cognitiveComplexity > 10) score -= 15;
+        else if (cognitiveComplexity > 5) score -= 5;
+        
+        // More realistic code smell scoring (less aggressive)
+        if (smellCount > 20) score -= 40;
+        else if (smellCount > 10) score -= 25;
+        else if (smellCount > 5) score -= 15;
+        else if (smellCount > 0) score -= Math.min(10, smellCount * 2);
+        
+        // Bonus points for good documentation
+        if (codeLines > 0) {
+            double commentRatio = (double) commentLines / codeLines;
+            if (commentRatio > 0.3) score += 15;
+            else if (commentRatio > 0.2) score += 10;
+            else if (commentRatio > 0.1) score += 5;
+        }
+        
+        // Ensure score is within bounds
+        return Math.max(0, Math.min(100, score));
+    }
+    
+    private int calculateRefactoringPriority(List<ai.refact.engine.model.CodeSmell> smells, int cyclomaticComplexity) {
+        int priority = 1; // Low priority by default
+        
+        // High priority for critical issues
+        long criticalCount = smells.stream().filter(s -> s.getSeverity() == SmellSeverity.CRITICAL).count();
+        if (criticalCount > 0) priority = 5;
+        
+        // Medium-high priority for high complexity
+        else if (cyclomaticComplexity > 15) priority = 4;
+        
+        // Medium priority for major issues or moderate complexity
+        else if (smells.stream().anyMatch(s -> s.getSeverity() == SmellSeverity.MAJOR) || cyclomaticComplexity > 10) {
+            priority = 3;
+        }
+        
+        // Medium-low priority for minor issues
+        else if (smells.size() > 3) priority = 2;
+        
+        return priority;
+    }
+    
+    private double calculateMaintainabilityIndex(int cyclomaticComplexity, int cognitiveComplexity, int smellCount, int commentLines, int codeLines) {
+        double index = 1.0;
+        
+        // Reduce index based on complexity
+        index -= (cyclomaticComplexity - 1) * 0.02;
+        index -= (cognitiveComplexity - 1) * 0.01;
+        
+        // Reduce index based on code smells
+        index -= smellCount * 0.05;
+        
+        // Increase index for good documentation
+        if (codeLines > 0) {
+            double commentRatio = (double) commentLines / codeLines;
+            index += commentRatio * 0.2;
+        }
+        
+        return Math.max(0.0, Math.min(1.0, index));
+    }
+    
+    private String getQualityCategory(int overallScore) {
+        if (overallScore >= 80) return "Excellent";
+        if (overallScore >= 70) return "Good";
+        if (overallScore >= 60) return "Fair";
+        if (overallScore >= 50) return "Poor";
+        return "Critical";
+    }
+    
+    private int calculateEstimatedEffort(List<ai.refact.engine.model.CodeSmell> smells, int cyclomaticComplexity) {
+        int effort = 1; // Hours
+        
+        // Add effort for code smells
+        effort += smells.size() * 2;
+        
+        // Add effort for complexity
+        if (cyclomaticComplexity > 15) effort += 8;
+        else if (cyclomaticComplexity > 10) effort += 4;
+        else if (cyclomaticComplexity > 5) effort += 2;
+        
+        return Math.min(40, effort); // Cap at 40 hours
+    }
+    
+    /**
+     * Get workspace file summary statistics.
+     */
+    @GetMapping("/workspaces/{id}/files/summary")
+    public ResponseEntity<Map<String, Object>> getWorkspaceFileSummary(@PathVariable String id) {
+        try {
+            logger.info("Getting file summary for workspace: {}", id);
+            
+            List<FileInfo> allFiles = projectService.getProjectFiles(id);
+            
+            // Calculate summary statistics
+            Map<String, Long> fileTypeCounts = new HashMap<>();
+            for (FileInfo file : allFiles) {
+                String type = file.type().toString();
+                fileTypeCounts.put(type, fileTypeCounts.getOrDefault(type, 0L) + 1);
+            }
+            
+            Map<String, Object> summary = new HashMap<>();
+            summary.put("totalFiles", allFiles.size());
+            summary.put("fileTypeCounts", fileTypeCounts);
+            summary.put("sourceFiles", fileTypeCounts.getOrDefault("SOURCE", 0L));
+            summary.put("testFiles", fileTypeCounts.getOrDefault("TEST", 0L));
+            summary.put("configFiles", fileTypeCounts.getOrDefault("CONFIG", 0L));
+            summary.put("resourceFiles", fileTypeCounts.getOrDefault("RESOURCE", 0L));
+            
+            return ResponseEntity.ok(summary);
+            
+        } catch (Exception e) {
+            logger.error("Failed to get file summary for workspace: {}", id, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * Get all files in a workspace with pagination, search, and filtering.
+     */
+    @GetMapping("/workspaces/{id}/files/paginated")
+    public ResponseEntity<Map<String, Object>> getWorkspaceFilesPaginated(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String fileType) {
+        try {
+            logger.info("Getting files for workspace: {} (page: {}, size: {}, search: {}, fileType: {})", 
+                       id, page, size, search, fileType);
+            
+            List<FileInfo> allFiles = projectService.getProjectFiles(id);
+            
+            // Apply search filter if provided
+            List<FileInfo> filteredFiles = allFiles;
+            if (search != null && !search.trim().isEmpty()) {
+                String searchLower = search.toLowerCase();
+                filteredFiles = allFiles.stream()
+                    .filter(file -> file.path().toLowerCase().contains(searchLower) ||
+                                  file.name().toLowerCase().contains(searchLower))
+                    .collect(Collectors.toList());
+            }
+            
+            // Apply file type filter if provided
+            if (fileType != null && !fileType.trim().isEmpty()) {
+                filteredFiles = filteredFiles.stream()
+                    .filter(file -> fileType.equalsIgnoreCase(file.type().toString()))
+                    .collect(Collectors.toList());
+            }
+            
+            // Calculate pagination
+            int totalFiles = filteredFiles.size();
+            int totalPages = (int) Math.ceil((double) totalFiles / size);
+            int startIndex = page * size;
+            int endIndex = Math.min(startIndex + size, totalFiles);
+            
+            // Get files for current page
+            List<FileInfo> pageFiles = filteredFiles.subList(startIndex, endIndex);
+            
+            // Build response with pagination info
+            Map<String, Object> response = new HashMap<>();
+            response.put("files", pageFiles);
+            
+            Map<String, Object> pagination = new HashMap<>();
+            pagination.put("currentPage", page);
+            pagination.put("totalPages", totalPages);
+            pagination.put("totalFiles", totalFiles);
+            pagination.put("pageSize", size);
+            pagination.put("hasNext", page < totalPages - 1);
+            pagination.put("hasPrevious", page > 0);
+            response.put("pagination", pagination);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Failed to get files for workspace: {}", id, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * Analyze file dependencies for a specific file
+     */
+    @GetMapping("/workspaces/{id}/dependencies/file")
+    public ResponseEntity<DependencyAnalysisService.FileDependencyAnalysis> analyzeFileDependencies(
+            @PathVariable String id, @RequestParam String filePath) {
+        try {
+            logger.info("Analyzing dependencies for file: {} in workspace: {}", filePath, id);
+            
+            ProjectContext projectContext = projectService.getProject(id);
+            DependencyAnalysisService.FileDependencyAnalysis analysis = 
+                dependencyAnalysisService.analyzeFileDependencies(projectContext, filePath);
+            
+            return ResponseEntity.ok(analysis);
+            
+        } catch (Exception e) {
+            logger.error("Failed to analyze file dependencies: {}", filePath, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * Analyze project-wide dependencies
+     */
+    @GetMapping("/workspaces/{id}/dependencies/project")
+    public ResponseEntity<DependencyAnalysisService.ProjectDependencyAnalysis> analyzeProjectDependencies(
+            @PathVariable String id) {
+        try {
+            logger.info("Analyzing project dependencies for workspace: {}", id);
+            
+            ProjectContext projectContext = projectService.getProject(id);
+            DependencyAnalysisService.ProjectDependencyAnalysis analysis = 
+                dependencyAnalysisService.analyzeProjectDependencies(projectContext);
+            
+            return ResponseEntity.ok(analysis);
+            
+        } catch (Exception e) {
+            logger.error("Failed to analyze project dependencies for workspace: {}", id, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * Get ripple effect analysis for a specific file
+     */
+    @GetMapping("/workspaces/{id}/dependencies/ripple-effect")
+    public ResponseEntity<Map<String, Object>> getRippleEffectAnalysis(
+            @PathVariable String id, @RequestParam String filePath) {
+        try {
+            logger.info("Analyzing ripple effect for file: {} in workspace: {}", filePath, id);
+            
+            ProjectContext projectContext = projectService.getProject(id);
+            List<String> affectedFiles = dependencyAnalysisService.getRippleEffectFiles(projectContext, filePath);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("targetFile", filePath);
+            response.put("affectedFiles", affectedFiles);
+            response.put("impactCount", affectedFiles.size());
+            response.put("hasImpact", affectedFiles.size() > 1); // More than just the target file itself
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Failed to analyze ripple effect for file: {}", filePath, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * Get dependency graph data for visualization
+     */
+    @GetMapping("/workspaces/{id}/dependencies/graph")
+    public ResponseEntity<Map<String, Object>> getDependencyGraph(@PathVariable String id) {
+        try {
+            logger.info("Getting dependency graph for workspace: {}", id);
+            
+            ProjectContext projectContext = projectService.getProject(id);
+            DependencyAnalysisService.ProjectDependencyAnalysis analysis = 
+                dependencyAnalysisService.analyzeProjectDependencies(projectContext);
+            
+            // Convert to frontend-friendly format
+            Map<String, Object> graphData = new HashMap<>();
+            
+            // Nodes (files)
+            List<Map<String, Object>> nodes = new ArrayList<>();
+            for (String filePath : analysis.getDependencyGraph().keySet()) {
+                Map<String, Object> node = new HashMap<>();
+                node.put("id", filePath);
+                node.put("label", filePath.substring(filePath.lastIndexOf('/') + 1));
+                node.put("path", filePath);
+                node.put("type", filePath.endsWith(".java") ? "java" : "other");
+                
+                // Add dependency counts
+                DependencyAnalysisService.FileDependencyAnalysis fileAnalysis = analysis.getFileDependencies().get(filePath);
+                if (fileAnalysis != null) {
+                    node.put("outgoingDependencies", fileAnalysis.getOutgoingDependencies());
+                    node.put("incomingDependencies", fileAnalysis.getIncomingDependencies());
+                }
+                
+                nodes.add(node);
+            }
+            
+            // Edges (dependencies)
+            List<Map<String, Object>> edges = new ArrayList<>();
+            for (Map.Entry<String, Set<String>> entry : analysis.getDependencyGraph().entrySet()) {
+                String source = entry.getKey();
+                for (String target : entry.getValue()) {
+                    Map<String, Object> edge = new HashMap<>();
+                    edge.put("source", source);
+                    edge.put("target", target);
+                    edge.put("type", "dependency");
+                    edges.add(edge);
+                }
+            }
+            
+            graphData.put("nodes", nodes);
+            graphData.put("edges", edges);
+            graphData.put("metrics", analysis.getMetrics());
+            
+            return ResponseEntity.ok(graphData);
+            
+        } catch (Exception e) {
+            logger.error("Failed to get dependency graph for workspace: {}", id, e);
+            return ResponseEntity.notFound().build();
+        }
+    }
+}

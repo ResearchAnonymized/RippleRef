@@ -1,0 +1,55 @@
+# Dependencies & builds
+node_modules/
+.venv/
+venv/
+ENV/
+env/
+target/
+build/
+dist/
+out/
+.next/
+*.jar
+*.war
+.m2/
+
+# Secrets
+.env
+.env.*
+!.env.example
+agents/.env
+**/secrets/
+**/*secret*
+
+# Caches & IDE
+__pycache__/
+*.py[cod]
+.Python
+.idea/
+.vscode/
+*.iml
+.DS_Store
+.cache/
+.npm/
+.gradle/
+
+# Logs & PIDs
+*.log
+logs/
+*.pid
+
+# Study outputs / data dumps (replication package is code-first)
+*.xlsx
+*.xls
+results/
+uploads/
+tmp/
+temp/
+
+# Local model weights
+models/
+*.bin
+*.pt
+*.pth
+*.onnx
+*.gguf

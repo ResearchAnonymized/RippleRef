@@ -1,0 +1,763 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { 
+  Code, Zap, FileText, AlertTriangle, CheckCircle, Info, XCircle,
+  BarChart3, Target, Lightbulb, Search, Filter, Download, RefreshCw,
+  Folder, PieChart, Eye, ChevronRight, ChevronDown, Clock, Shield,
+  TrendingUp, GitBranch, Settings, Play, StopCircle, AlertCircle,
+  CheckCircle2, MinusCircle, PlusCircle, ExternalLink, Copy, Edit3,
+  Trash2, Star, Activity, Layers, Database, Cpu, HardDrive, Network,
+  Lock, Unlock, Bug, Wrench, BookOpen, FileCode, GitCommit, Calendar,
+  User, Users, Globe, Server, Monitor, Smartphone, Tablet, TestTube,
+  ChevronLeft, ChevronFirst, ChevronLast, X, Grid, List, Maximize2,
+  Minimize2, MoreHorizontal, ArrowUpDown, Filter as FilterIcon
+} from 'lucide-react';
+import { apiClient, FileInfo, Assessment, Plan } from '../api/client';
+import { CodeSmellsPieChart, MetricsBarChart, QualityGauge } from './Charts';
+
+interface ImprovedDashboardProps {
+  workspaceId: string;
+  files: FileInfo[];
+  assessment: Assessment | null;
+  plan: Plan | null;
+  onAnalysisComplete?: () => void;
+}
+
+export default function ImprovedDashboard({ 
+  workspaceId, 
+  files, 
+  assessment, 
+  plan, 
+  onAnalysisComplete 
+}: ImprovedDashboardProps) {
+  const [activeView, setActiveView] = useState<'overview' | 'files' | 'analysis' | 'security' | 'enhanced'>('overview');
+  const [selectedFile, setSelectedFile] = useState<FileInfo | null>(null);
+  const [fileViewMode, setFileViewMode] = useState<'grid' | 'list'>('list');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [fileTypeFilter, setFileTypeFilter] = useState('');
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+
+  // File type statistics
+  const fileStats = useMemo(() => {
+    const javaFiles = files.filter(f => f.name.endsWith('.java'));
+    const resourceFiles = files.filter(f => f.relativePath.includes('/resources/'));
+    const testFiles = files.filter(f => f.relativePath.includes('/test/'));
+    const configFiles = files.filter(f => f.name.match(/\.(xml|yml|yaml|properties|json)$/));
+    
+    return {
+      total: files.length,
+      java: javaFiles.length,
+      resources: resourceFiles.length,
+      tests: testFiles.length,
+      config: configFiles.length
+    };
+  }, [files]);
+
+  // Filtered files
+  const filteredFiles = useMemo(() => {
+    return files.filter(file => {
+      const matchesSearch = file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           file.relativePath.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = !fileTypeFilter || 
+        (fileTypeFilter === 'java' && file.name.endsWith('.java')) ||
+        (fileTypeFilter === 'resources' && file.relativePath.includes('/resources/')) ||
+        (fileTypeFilter === 'tests' && file.relativePath.includes('/test/')) ||
+        (fileTypeFilter === 'config' && file.name.match(/\.(xml|yml|yaml|properties|json)$/));
+      
+      return matchesSearch && matchesType;
+    });
+  }, [files, searchTerm, fileTypeFilter]);
+
+  // Paginated files
+  const paginatedFiles = useMemo(() => {
+    const start = currentPage * pageSize;
+    return filteredFiles.slice(start, start + pageSize);
+  }, [filteredFiles, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredFiles.length / pageSize);
+
+  const toggleFileExpansion = (filePath: string) => {
+    const newExpanded = new Set(expandedFiles);
+    if (newExpanded.has(filePath)) {
+      newExpanded.delete(filePath);
+    } else {
+      newExpanded.add(filePath);
+    }
+    setExpandedFiles(newExpanded);
+  };
+
+  const getFileTypeIcon = (file: FileInfo) => {
+    if (file.name.endsWith('.java')) return <FileCode className="w-4 h-4 text-blue-400" />;
+    if (file.relativePath.includes('/resources/')) return <Database className="w-4 h-4 text-yellow-400" />;
+    if (file.relativePath.includes('/test/')) return <TestTube className="w-4 h-4 text-green-400" />;
+    if (file.name.match(/\.(xml|yml|yaml|properties|json)$/)) return <Settings className="w-4 h-4 text-purple-400" />;
+    return <FileText className="w-4 h-4 text-gray-400" />;
+  };
+
+  const getFileTypeBadge = (file: FileInfo) => {
+    if (file.name.endsWith('.java')) return { text: 'JAVA', color: 'bg-blue-100 text-blue-800' };
+    if (file.relativePath.includes('/resources/')) return { text: 'RESOURCE', color: 'bg-yellow-100 text-yellow-800' };
+    if (file.relativePath.includes('/test/')) return { text: 'TEST', color: 'bg-green-100 text-green-800' };
+    if (file.name.match(/\.(xml|yml|yaml|properties|json)$/)) return { text: 'CONFIG', color: 'bg-purple-100 text-purple-800' };
+    return { text: 'OTHER', color: 'bg-gray-100 text-gray-800' };
+  };
+
+  // File Analysis View Component
+  const FileAnalysisView = ({ file }: { file: FileInfo }) => {
+    const [fileAnalysis, setFileAnalysis] = useState<any>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+    const analyzeFile = async () => {
+      setIsAnalyzing(true);
+      try {
+        // Call the real backend API to analyze the specific file
+        const analysisResult = await apiClient.analyzeFileEnhanced(workspaceId, file.relativePath);
+        
+        // Transform the backend response to match our UI format
+        const transformedAnalysis = {
+          filePath: file.relativePath,
+          metrics: analysisResult.metrics || file.metrics,
+          codeSmells: analysisResult.codeSmells || [],
+          categories: {
+            'Class-Level Smells': (analysisResult.codeSmells || []).filter(smell => 
+              smell.category === 'BLOATER' && (smell.type === 'LARGE_CLASS' || smell.type === 'DATA_CLASS' || smell.type === 'LAZY_CLASS')
+            ),
+            'Method-Level Smells': (analysisResult.codeSmells || []).filter(smell => 
+              smell.category === 'BLOATER' && (smell.type === 'LONG_METHOD' || smell.type === 'LONG_PARAMETER_LIST') ||
+              smell.category === 'CHANGE_PREVENTER' && smell.type === 'SHOTGUN_SURGERY' ||
+              smell.category === 'DISPENSABLE' && smell.type === 'DUPLICATE_CODE'
+            ),
+            'Code Structure Smells': (analysisResult.codeSmells || []).filter(smell => 
+              smell.category === 'DISPENSABLE' && (smell.type === 'EXCESSIVE_COMMENTS' || smell.type === 'DEAD_CODE') ||
+              smell.category === 'OBJECT_ORIENTATION_ABUSER' && smell.type === 'SWITCH_STATEMENTS' ||
+              smell.category === 'BLOATER' && smell.type === 'PRIMITIVE_OBSESSION'
+            ),
+            'Design & Architecture Smells': (analysisResult.codeSmells || []).filter(smell => 
+              smell.category === 'HIERARCHY_ISSUE' && smell.type === 'CYCLIC_DEPENDENCIES' ||
+              smell.category === 'COUPLER' && smell.type === 'FEATURE_ENVY' ||
+              smell.category === 'ENCAPSULATION_ISSUE' && (smell.type === 'MISPLACED_RESPONSIBILITY' || smell.type === 'SWITCH_STATEMENTS')
+            ),
+            'Concurrency & Performance Smells': (analysisResult.codeSmells || []).filter(smell => 
+              smell.category === 'CONCURRENCY_ISSUE' && smell.type === 'GLOBAL_MUTABLE_STATE' ||
+              smell.category === 'PERFORMANCE_ISSUE' && (smell.type === 'INEFFICIENT_RESOURCE_USAGE')
+            ),
+            'Testability Smells': (analysisResult.codeSmells || []).filter(smell => 
+              smell.category === 'TESTING_ISSUE' && smell.type === 'MISSING_COVERAGE'
+            )
+          }
+        };
+        
+        setFileAnalysis(transformedAnalysis);
+      } catch (error) {
+        console.error('Failed to analyze file:', error);
+        // Show error message to user
+        alert('Failed to analyze file. Please make sure the workspace is properly loaded and try again.');
+      } finally {
+        setIsAnalyzing(false);
+      }
+    };
+
+    const getSeverityColor = (severity: string) => {
+      switch (severity) {
+        case 'CRITICAL': return 'text-red-400 bg-red-100';
+        case 'MAJOR': return 'text-orange-400 bg-orange-100';
+        case 'MINOR': return 'text-yellow-400 bg-yellow-100';
+        default: return 'text-gray-400 bg-gray-100';
+      }
+    };
+
+    const getSeverityIcon = (severity: string) => {
+      switch (severity) {
+        case 'CRITICAL': return <AlertTriangle className="w-4 h-4" />;
+        case 'MAJOR': return <AlertCircle className="w-4 h-4" />;
+        case 'MINOR': return <Info className="w-4 h-4" />;
+        default: return <Info className="w-4 h-4" />;
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* File Header */}
+        <div className="bg-slate-800 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <h2 className="text-xl font-semibold text-white">File Analysis</h2>
+              <span className={`px-2 py-1 rounded text-xs font-medium ${getFileTypeBadge(file).color}`}>
+                {getFileTypeBadge(file).text}
+              </span>
+            </div>
+            <button
+              onClick={() => setSelectedFile(null)}
+              className="text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="mb-4">
+            <h3 className="text-lg font-medium text-white">{file.name}</h3>
+            <p className="text-sm text-slate-400">{file.relativePath}</p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="bg-slate-700 rounded-lg p-3 text-center">
+              <div className="text-xl font-bold text-blue-400">{file.metrics.linesOfCode}</div>
+              <div className="text-xs text-slate-300">Lines of Code</div>
+            </div>
+            <div className="bg-slate-700 rounded-lg p-3 text-center">
+              <div className="text-xl font-bold text-green-400">{file.metrics.classCount}</div>
+              <div className="text-xs text-slate-300">Classes</div>
+            </div>
+            <div className="bg-slate-700 rounded-lg p-3 text-center">
+              <div className="text-xl font-bold text-yellow-400">{file.metrics.methodCount}</div>
+              <div className="text-xs text-slate-300">Methods</div>
+            </div>
+            <div className="bg-slate-700 rounded-lg p-3 text-center">
+              <div className="text-xl font-bold text-purple-400">{file.metrics.cyclomaticComplexity}</div>
+              <div className="text-xs text-slate-300">Complexity</div>
+            </div>
+          </div>
+
+          <button
+            onClick={analyzeFile}
+            disabled={isAnalyzing}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isAnalyzing ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2 inline animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Code className="w-4 h-4 mr-2 inline" />
+                Analyze File
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Analysis Results */}
+        {fileAnalysis && (
+          <div className="space-y-6">
+            {/* Code Smells by Category */}
+            {Object.entries(fileAnalysis.categories).map(([category, smells]: [string, any[]]) => {
+              if (smells.length === 0) return null;
+              
+              return (
+                <div key={category} className="bg-slate-800 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+                    <Bug className="w-5 h-5 mr-2 text-red-400" />
+                    {category} ({smells.length})
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {smells.map((smell: any) => (
+                      <div key={smell.id} className="bg-slate-700 rounded-lg p-4 border-l-4 border-l-red-500">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${getSeverityColor(smell.severity)}`}>
+                              {getSeverityIcon(smell.severity)}
+                              <span className="ml-1">{smell.severity}</span>
+                            </span>
+                            <h4 className="text-sm font-semibold text-white">{smell.name}</h4>
+                          </div>
+                          <span className="text-xs text-slate-400">Impact: {smell.impact}</span>
+                        </div>
+                        
+                        <p className="text-sm text-slate-300 mb-2">{smell.description}</p>
+                        
+                        <div className="bg-slate-600 rounded p-3 mb-2">
+                          <div className="flex items-start space-x-2">
+                            <Lightbulb className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs font-medium text-yellow-400 mb-1">Suggestion:</p>
+                              <p className="text-xs text-slate-200">{smell.suggestion}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-slate-600 rounded p-3">
+                          <div className="flex items-start space-x-2">
+                            <Info className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-xs font-medium text-blue-400 mb-1">Why this matters:</p>
+                              <p className="text-xs text-slate-200">{smell.explanation}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* No Code Smells */}
+            {fileAnalysis && Object.values(fileAnalysis.categories).every((smells: any[]) => smells.length === 0) && (
+              <div className="bg-slate-800 rounded-lg p-6 text-center">
+                <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-white mb-2">No Code Smells Detected!</h3>
+                <p className="text-slate-400">This file follows good coding practices and design principles.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex h-full bg-slate-900">
+      {/* Left Sidebar - Compact */}
+      <div className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col">
+        {/* Logo & Navigation */}
+        <div className="p-4 border-b border-slate-700">
+          <div className="flex items-center space-x-2 mb-4">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <Code className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white">RefactAI</h1>
+              <p className="text-xs text-slate-400">Code Analysis</p>
+            </div>
+          </div>
+          
+          <nav className="space-y-1">
+            {[
+              { id: 'overview', label: 'Overview', icon: BarChart3 },
+              { id: 'files', label: 'Files', icon: Folder, count: files.length },
+              { id: 'analysis', label: 'Analysis', icon: Code },
+              { id: 'security', label: 'Security', icon: Shield },
+              { id: 'enhanced', label: 'Enhanced', icon: Zap }
+            ].map(({ id, label, icon: Icon, count }) => (
+              <button
+                key={id}
+                onClick={() => setActiveView(id as any)}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors ${
+                  activeView === id
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Icon className="w-4 h-4" />
+                  <span className="text-sm">{label}</span>
+                </div>
+                {count !== undefined && (
+                  <span className="text-xs bg-slate-600 text-slate-200 px-2 py-0.5 rounded-full">
+                    {count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="p-4 border-b border-slate-700">
+          <div className="bg-slate-700 rounded-lg p-3">
+            <h3 className="text-sm font-semibold text-white mb-2">Project Stats</h3>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-300">Total Files:</span>
+                <span className="text-white font-medium">{fileStats.total}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-300">Java Files:</span>
+                <span className="text-blue-400 font-medium">{fileStats.java}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-300">Resources:</span>
+                <span className="text-yellow-400 font-medium">{fileStats.resources}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-300">Tests:</span>
+                <span className="text-green-400 font-medium">{fileStats.tests}</span>
+              </div>
+              {assessment && (
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Quality Score:</span>
+                  <span className="text-green-400 font-semibold">
+                    {assessment.overallScore}/100
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Analysis Summary */}
+        {assessment && (
+          <div className="p-4 flex-1 overflow-y-auto">
+            <div className="bg-slate-700 rounded-lg p-3">
+              <h3 className="text-sm font-semibold text-white mb-2">Issues Found</h3>
+              <div className="space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Critical:</span>
+                  <span className="text-red-400 font-semibold">
+                    {assessment.smellsBySeverity?.CRITICAL || 0}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Major:</span>
+                  <span className="text-orange-400 font-semibold">
+                    {assessment.smellsBySeverity?.MAJOR || 0}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-300">Minor:</span>
+                  <span className="text-yellow-400 font-semibold">
+                    {assessment.smellsBySeverity?.MINOR || 0}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Top Header */}
+        <div className="bg-slate-800 border-b border-slate-700 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-white capitalize">
+                {activeView} Dashboard
+              </h2>
+              <p className="text-sm text-slate-400">
+                Workspace: {workspaceId}
+              </p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                <Play className="w-4 h-4 mr-2 inline" />
+                Run Analysis
+              </button>
+              <button className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                <Download className="w-4 h-4 mr-2 inline" />
+                Export
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-hidden">
+          {activeView === 'overview' && (
+            <div className="h-full overflow-y-auto p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                {/* Project Overview Card */}
+                <div className="lg:col-span-2 bg-slate-800 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">Project Overview</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-slate-700 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-blue-400">{fileStats.total}</div>
+                      <div className="text-sm text-slate-300">Total Files</div>
+                    </div>
+                    <div className="bg-slate-700 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-green-400">{fileStats.java}</div>
+                      <div className="text-sm text-slate-300">Java Files</div>
+                    </div>
+                    <div className="bg-slate-700 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-yellow-400">{fileStats.resources}</div>
+                      <div className="text-sm text-slate-300">Resources</div>
+                    </div>
+                    <div className="bg-slate-700 rounded-lg p-4 text-center">
+                      <div className="text-2xl font-bold text-purple-400">{fileStats.tests}</div>
+                      <div className="text-sm text-slate-300">Tests</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quality Score Card */}
+                <div className="bg-slate-800 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">Quality Score</h3>
+                  <div className="flex justify-center">
+                    <QualityGauge 
+                      score={assessment?.overallScore || 0}
+                      maxScore={100}
+                      label="Overall Quality"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Charts Row */}
+              {assessment && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-slate-800 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Code Smells Distribution</h3>
+                    <CodeSmellsPieChart 
+                      critical={assessment.smellsBySeverity?.CRITICAL || 0}
+                      major={assessment.smellsBySeverity?.MAJOR || 0}
+                      minor={assessment.smellsBySeverity?.MINOR || 0}
+                    />
+                  </div>
+                  <div className="bg-slate-800 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">File Metrics</h3>
+                    <MetricsBarChart 
+                      classes={fileStats.java}
+                      methods={fileStats.java * 3} // Estimated
+                      fields={fileStats.java * 2} // Estimated
+                      lines={fileStats.total * 10} // Estimated
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeView === 'files' && (
+            <div className="h-full flex flex-col">
+              {/* Files Header */}
+              <div className="bg-slate-800 border-b border-slate-700 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">File Browser</h3>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setFileViewMode('list')}
+                      className={`p-2 rounded ${fileViewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'}`}
+                    >
+                      <List className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setFileViewMode('grid')}
+                      className={`p-2 rounded ${fileViewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'}`}
+                    >
+                      <Grid className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Search and Filters */}
+                <div className="flex items-center space-x-4">
+                  <div className="flex-1 relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search files..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full bg-slate-700 text-white pl-10 pr-4 py-2 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                  <select
+                    value={fileTypeFilter}
+                    onChange={(e) => setFileTypeFilter(e.target.value)}
+                    className="bg-slate-700 text-white px-3 py-2 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="">All Types</option>
+                    <option value="java">Java Files</option>
+                    <option value="resources">Resources</option>
+                    <option value="tests">Tests</option>
+                    <option value="config">Config</option>
+                  </select>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="bg-slate-700 text-white px-3 py-2 rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value={10}>10 per page</option>
+                    <option value={20}>20 per page</option>
+                    <option value={50}>50 per page</option>
+                    <option value={100}>100 per page</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Files List */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {fileViewMode === 'list' ? (
+                  <div className="space-y-2">
+                    {paginatedFiles.map((file, index) => {
+                      const isExpanded = expandedFiles.has(file.relativePath);
+                      const badge = getFileTypeBadge(file);
+                      
+                      return (
+                        <div key={index} className="bg-slate-800 rounded-lg border border-slate-700">
+                          <div className="p-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                <button
+                                  onClick={() => toggleFileExpansion(file.relativePath)}
+                                  className="text-slate-400 hover:text-white"
+                                >
+                                  {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                </button>
+                                {getFileTypeIcon(file)}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-white truncate">{file.name}</p>
+                                  <p className="text-xs text-slate-400 truncate">{file.relativePath}</p>
+                                </div>
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${badge.color}`}>
+                                  {badge.text}
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedFile(file);
+                                    setActiveView('analysis');
+                                  }}
+                                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs transition-colors"
+                                >
+                                  Analyze
+                                </button>
+                                <button className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-xs transition-colors">
+                                  View
+                                </button>
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="mt-4 pt-4 border-t border-slate-700">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                                  <div>
+                                    <span className="text-slate-400">Lines:</span>
+                                    <span className="text-white ml-2">{file.metrics.linesOfCode}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Classes:</span>
+                                    <span className="text-white ml-2">{file.metrics.classCount}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Methods:</span>
+                                    <span className="text-white ml-2">{file.metrics.methodCount}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-slate-400">Complexity:</span>
+                                    <span className="text-white ml-2">{file.metrics.cyclomaticComplexity}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {paginatedFiles.map((file, index) => {
+                      const badge = getFileTypeBadge(file);
+                      
+                      return (
+                        <div key={index} className="bg-slate-800 rounded-lg border border-slate-700 p-4 hover:border-slate-600 transition-colors">
+                          <div className="flex items-center space-x-2 mb-3">
+                            {getFileTypeIcon(file)}
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${badge.color}`}>
+                              {badge.text}
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-medium text-white mb-1 truncate">{file.name}</h4>
+                          <p className="text-xs text-slate-400 mb-3 truncate">{file.relativePath}</p>
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-slate-300">
+                              {file.metrics.linesOfCode} lines
+                            </div>
+                            <button
+                              onClick={() => setSelectedFile(file)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                            >
+                              Analyze
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="text-sm text-slate-400">
+                      Showing {currentPage * pageSize + 1} to {Math.min((currentPage + 1) * pageSize, filteredFiles.length)} of {filteredFiles.length} files
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setCurrentPage(0)}
+                        disabled={currentPage === 0}
+                        className="p-2 text-slate-400 hover:text-white disabled:opacity-50"
+                      >
+                        <ChevronFirst className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(currentPage - 1)}
+                        disabled={currentPage === 0}
+                        className="p-2 text-slate-400 hover:text-white disabled:opacity-50"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="text-sm text-slate-300">
+                        Page {currentPage + 1} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setCurrentPage(currentPage + 1)}
+                        disabled={currentPage >= totalPages - 1}
+                        className="p-2 text-slate-400 hover:text-white disabled:opacity-50"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(totalPages - 1)}
+                        disabled={currentPage >= totalPages - 1}
+                        className="p-2 text-slate-400 hover:text-white disabled:opacity-50"
+                      >
+                        <ChevronLast className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Individual File Analysis */}
+          {activeView === 'analysis' && (
+            <div className="h-full flex flex-col">
+              {selectedFile ? (
+                <div className="h-full overflow-y-auto p-6">
+                  <FileAnalysisView file={selectedFile} />
+                </div>
+              ) : (
+                <div className="h-full overflow-y-auto p-6">
+                  <div className="text-center py-12">
+                    <Code className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-white mb-2">Code Analysis</h3>
+                    <p className="text-slate-400">Select a file from the Files tab to see detailed analysis</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeView === 'security' && (
+            <div className="h-full overflow-y-auto p-6">
+              <div className="text-center py-12">
+                <Shield className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-white mb-2">Security Analysis</h3>
+                <p className="text-slate-400">Security analysis features coming soon...</p>
+              </div>
+            </div>
+          )}
+
+          {activeView === 'enhanced' && (
+            <div className="h-full overflow-y-auto p-6">
+              <div className="text-center py-12">
+                <Zap className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-white mb-2">Enhanced Analysis</h3>
+                <p className="text-slate-400">Enhanced analysis features coming soon...</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

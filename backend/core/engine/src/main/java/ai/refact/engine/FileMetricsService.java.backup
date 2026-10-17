@@ -1,0 +1,342 @@
+package ai.refact.engine;
+
+import ai.refact.api.CodeQualityMetrics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Pattern;
+
+/**
+ * Service for calculating comprehensive code metrics.
+ * Used by the refactoring engine to assess code quality.
+ */
+@Service
+public class FileMetricsService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(FileMetricsService.class);
+    
+    /**
+     * Calculate comprehensive code quality metrics for a file.
+     */
+    public CodeQualityMetrics calculateFileMetrics(Path filePath) {
+        try {
+            if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+                return createEmptyMetrics();
+            }
+            
+            List<String> lines = Files.readAllLines(filePath);
+            if (lines.isEmpty()) {
+                return createEmptyMetrics();
+            }
+            
+            int totalLines = lines.size();
+            int commentLines = countCommentLines(lines, filePath);
+            int blankLines = countBlankLines(lines);
+            int codeLines = totalLines - commentLines - blankLines;
+            
+            int methodCount = countMethods(lines, filePath);
+            int classCount = countClasses(lines, filePath);
+            int cyclomaticComplexity = calculateCyclomaticComplexity(lines, filePath);
+            int cognitiveComplexity = calculateCognitiveComplexity(lines, filePath);
+            double maintainabilityIndex = calculateMaintainabilityIndex(cyclomaticComplexity, codeLines, commentLines);
+            int codeSmells = countCodeSmells(lines, filePath);
+            List<String> staticAnalysisWarnings = detectStaticAnalysisWarnings(lines, filePath);
+            
+            return new CodeQualityMetrics(
+                codeLines,
+                cyclomaticComplexity,
+                cognitiveComplexity,
+                methodCount,
+                classCount,
+                commentLines,
+                blankLines,
+                maintainabilityIndex,
+                codeSmells,
+                staticAnalysisWarnings
+            );
+            
+        } catch (IOException e) {
+            logger.warn("Failed to calculate metrics for file: {}", filePath, e);
+            return createEmptyMetrics();
+        }
+    }
+    
+    private CodeQualityMetrics createEmptyMetrics() {
+        return new CodeQualityMetrics(
+            0, 0, 0, 0, 0, 0, 0, 0.0, 0, new ArrayList<>()
+        );
+    }
+    
+    private int countCommentLines(List<String> lines, Path filePath) {
+        String fileName = filePath.getFileName().toString().toLowerCase();
+        boolean isJavaFile = fileName.endsWith(".java");
+        boolean isXmlFile = fileName.endsWith(".xml");
+        
+        int commentLines = 0;
+        boolean inMultiLineComment = false;
+        
+        for (String line : lines) {
+            String trimmedLine = line.trim();
+            
+            if (isJavaFile) {
+                // Java comment detection
+                if (inMultiLineComment) {
+                    commentLines++;
+                    if (trimmedLine.contains("*/")) {
+                        inMultiLineComment = false;
+                    }
+                } else if (trimmedLine.startsWith("//")) {
+                    commentLines++;
+                } else if (trimmedLine.startsWith("/*")) {
+                    commentLines++;
+                    if (!trimmedLine.contains("*/")) {
+                        inMultiLineComment = true;
+                    }
+                }
+            } else if (isXmlFile) {
+                // XML comment detection
+                if (trimmedLine.startsWith("<!--")) {
+                    commentLines++;
+                }
+            }
+        }
+        
+        return commentLines;
+    }
+    
+    private int countBlankLines(List<String> lines) {
+        return (int) lines.stream()
+            .map(String::trim)
+            .filter(String::isEmpty)
+            .count();
+    }
+    
+    private int countMethods(List<String> lines, Path filePath) {
+        String fileName = filePath.getFileName().toString().toLowerCase();
+        if (!fileName.endsWith(".java")) {
+            return 0;
+        }
+        
+        int methodCount = 0;
+        Pattern methodPattern = Pattern.compile(
+            "\\s*(public|private|protected|static|final|native|synchronized|abstract|transient|volatile)?\\s+" +
+            "\\w+\\s+\\w+\\s*\\("
+        );
+        
+        for (String line : lines) {
+            if (methodPattern.matcher(line).find()) {
+                methodCount++;
+            }
+        }
+        
+        return methodCount;
+    }
+    
+    private int countClasses(List<String> lines, Path filePath) {
+        String fileName = filePath.getFileName().toString().toLowerCase();
+        if (!fileName.endsWith(".java")) {
+            return 0;
+        }
+        
+        int classCount = 0;
+        Pattern classPattern = Pattern.compile(
+            "\\s*(public|private|protected|abstract|final|strictfp)?\\s*" +
+            "(class|interface|enum)\\s+\\w+"
+        );
+        
+        for (String line : lines) {
+            if (classPattern.matcher(line).find()) {
+                classCount++;
+            }
+        }
+        
+        return classCount;
+    }
+    
+    private int calculateCyclomaticComplexity(List<String> lines, Path filePath) {
+        String fileName = filePath.getFileName().toString().toLowerCase();
+        if (!fileName.endsWith(".java")) {
+            return 0;
+        }
+        
+        int complexity = 1; // Base complexity
+        
+        for (String line : lines) {
+            String trimmedLine = line.trim();
+            
+            // Decision points
+            if (trimmedLine.contains("if ") || trimmedLine.contains("else if")) complexity++;
+            if (trimmedLine.contains("for ")) complexity++;
+            if (trimmedLine.contains("while ")) complexity++;
+            if (trimmedLine.contains("case ")) complexity++;
+            if (trimmedLine.contains("catch ")) complexity++;
+            if (trimmedLine.contains("&&") || trimmedLine.contains("||")) complexity++;
+        }
+        
+        return complexity;
+    }
+    
+    private int calculateCognitiveComplexity(List<String> lines, Path filePath) {
+        String fileName = filePath.getFileName().toString().toLowerCase();
+        if (!fileName.endsWith(".java")) {
+            return 0;
+        }
+        
+        int complexity = 0;
+        
+        for (String line : lines) {
+            String trimmedLine = line.trim();
+            
+            // Increment for each decision point
+            if (trimmedLine.contains("if ") || trimmedLine.contains("else if")) complexity++;
+            if (trimmedLine.contains("for ")) complexity++;
+            if (trimmedLine.contains("while ")) complexity++;
+            if (trimmedLine.contains("case ")) complexity++;
+            if (trimmedLine.contains("catch ")) complexity++;
+            
+            // Increment for logical operators
+            if (trimmedLine.contains("&&") || trimmedLine.contains("||")) complexity++;
+        }
+        
+        return complexity;
+    }
+    
+    private double calculateMaintainabilityIndex(int cyclomaticComplexity, int codeLines, int commentLines) {
+        // Simplified Maintainability Index calculation
+        // In production, use more sophisticated algorithms
+        
+        double volume = Math.log(codeLines + commentLines + 1);
+        double complexity = Math.log(cyclomaticComplexity + 1);
+        double commentRatio = commentLines / (double) Math.max(codeLines, 1);
+        
+        double mi = 171 - 5.2 * volume - 0.23 * complexity - 16.2 * commentRatio;
+        
+        // Normalize to 0-100 scale
+        return Math.max(0, Math.min(100, mi));
+    }
+    
+    private int countCodeSmells(List<String> lines, Path filePath) {
+        String fileName = filePath.getFileName().toString().toLowerCase();
+        if (!fileName.endsWith(".java")) {
+            return 0;
+        }
+        
+        int codeSmells = 0;
+        
+        // Long method smell
+        if (lines.size() > 20) {
+            codeSmells++;
+        }
+        
+        // Large class smell
+        if (lines.size() > 500) {
+            codeSmells++;
+        }
+        
+        // High complexity smell
+        int complexity = calculateCyclomaticComplexity(lines, filePath);
+        if (complexity > 10) {
+            codeSmells++;
+        }
+        
+        // Magic numbers smell
+        Pattern magicNumberPattern = Pattern.compile("\\b\\d{3,}\\b");
+        for (String line : lines) {
+            if (magicNumberPattern.matcher(line).find()) {
+                codeSmells++;
+                break;
+            }
+        }
+        
+        // Duplicate code smell (simplified detection)
+        for (int i = 0; i < lines.size() - 1; i++) {
+            for (int j = i + 1; j < lines.size(); j++) {
+                if (lines.get(i).trim().equals(lines.get(j).trim()) {
+                    codeSmells++;
+                    break;
+                }
+            }
+        }
+        
+        return codeSmells;
+    }
+    
+    private List<String> detectStaticAnalysisWarnings(List<String> lines, Path filePath) {
+        List<String> warnings = new ArrayList<>();
+        String fileName = filePath.getFileName().toString().toLowerCase();
+        
+        if (!fileName.endsWith(".java")) {
+            return warnings;
+        }
+        
+        // Unused imports warning
+        boolean hasImports = false;
+        boolean hasUnusedImports = false;
+        for (String line : lines) {
+            if (line.trim().startsWith("import ")) {
+                hasImports = true;
+                // Simple check for unused imports (in production, use proper AST analysis)
+                String importedClass = line.trim().substring(7, line.trim().length() - 1);
+                if (importedClass.contains(".")) {
+                    importedClass = importedClass.substring(importedClass.lastIndexOf(".") + 1);
+                }
+                
+                boolean isUsed = false;
+                for (String codeLine : lines) {
+                    if (codeLine.contains(importedClass) && !codeLine.trim().startsWith("import ")) {
+                        isUsed = true;
+                        break;
+                    }
+                }
+                
+                if (!isUsed) {
+                    hasUnusedImports = true;
+                }
+            }
+        }
+        
+        if (hasImports && hasUnusedImports) {
+            warnings.add("Unused imports detected");
+        }
+        
+        // Missing documentation warning
+        boolean hasPublicMethods = false;
+        boolean hasDocumentedMethods = false;
+        for (String line : lines) {
+            if (line.trim().startsWith("public ") && line.contains("(")) {
+                hasPublicMethods = true;
+                // Check if previous line has JavaDoc
+                int lineIndex = lines.indexOf(line);
+                if (lineIndex > 0) {
+                    String prevLine = lines.get(lineIndex - 1).trim();
+                    if (prevLine.startsWith("/**")) {
+                        hasDocumentedMethods = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (hasPublicMethods && !hasDocumentedMethods) {
+            warnings.add("Public methods lack JavaDoc documentation");
+        }
+        
+        // Potential null pointer warning
+        for (String line : lines) {
+            if (line.contains(".") && !line.contains("null") && 
+                (line.contains("get") || line.contains("find") || line.contains("create"))) {
+                warnings.add("Potential null pointer dereference");
+                break;
+            }
+        }
+        
+        return warnings;
+    }
+}
+
