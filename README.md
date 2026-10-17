@@ -18,6 +18,7 @@
 <p align="center">
   <a href="#why-rippleref-exists">Why</a> ·
   <a href="#what-makes-it-different">Innovation</a> ·
+  <a href="#how-generation-works-two-modes">Single-prompt vs MA</a> ·
   <a href="#architecture">Architecture</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#study-arms">Study arms</a> ·
@@ -70,12 +71,36 @@ Study IDs, pair keys, artifact folders, overnight scripts — designed for **hun
 </tr>
 </table>
 
-```mermaid
-flowchart LR
-  SP[Single-prompt V2] --> V[Shared L1–L5 verify]
-  MA[LangGraph MA] --> V
-  V --> R[risk · adoption · reports]
-```
+---
+
+## How generation works (two modes)
+
+Both modes start from the **same dependency context** and finish on the **same L1–L5 verifier**. Only the middle differs.
+
+### Prompt-based — Single-prompt V2 (B0)
+
+One packaged prompt → **one** LLM completion → extract Java → verify.
+
+<p align="center">
+  <img src="docs/assets/flow-single-prompt.svg" alt="Single-prompt V2 flow" width="100%"/>
+</p>
+
+### Multi-agent — LangGraph (P-MA)
+
+Planner → Editor → agent-side checks → optional revise loop → **same** shared verify.
+
+<p align="center">
+  <img src="docs/assets/flow-multi-agent.svg" alt="Multi-agent LangGraph flow" width="100%"/>
+</p>
+
+| | Single-prompt V2 | Multi-agent MA |
+|--|------------------|----------------|
+| LLM calls | Typically **one** | **Several** (plan / edit / verify) |
+| Dependency context | Embedded in the V2 prompt | Available to the agent graph |
+| Revision | No internal loop | Can revise before final verify |
+| Final scoring | Shared L1–L5 | Shared L1–L5 |
+
+More detail: [`wiki/Agentic-Systems.md`](wiki/Agentic-Systems.md).
 
 ---
 

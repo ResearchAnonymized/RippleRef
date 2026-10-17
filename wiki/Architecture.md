@@ -56,14 +56,17 @@ pair_key = project_id | file_path | model_id | variant
 
 ## B0 vs MA (same landing zone)
 
-```mermaid
-flowchart LR
-  CTX[Dependency context] --> B0[B0: one LLM call]
-  CTX --> MA[MA: plan → edit → verify]
-  B0 --> V[apply-and-verify]
-  MA --> V
-  V --> UI[UI / CSV results]
-```
+See the dedicated flows in [Agentic systems](Agentic-Systems.md):
+
+- [Single-prompt V2](../docs/assets/flow-single-prompt.svg)  
+- [Multi-agent LangGraph](../docs/assets/flow-multi-agent.svg)  
+
+<p align="center">
+  <img src="../docs/assets/flow-single-prompt.svg" alt="Single-prompt" width="100%"/>
+</p>
+<p align="center">
+  <img src="../docs/assets/flow-multi-agent.svg" alt="Multi-agent" width="100%"/>
+</p>
 
 ## Web UI entry points
 
