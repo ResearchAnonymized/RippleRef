@@ -3,7 +3,7 @@
 #
 # Usage (run in your terminal — has Desktop access):
 #   bash scripts/restore-emse-data-from-desktop.sh
-#   bash scripts/restore-emse-data-from-desktop.sh /Users/svm648/Desktop/EMSE-data
+#   bash scripts/restore-emse-data-from-desktop.sh "$HOME/Desktop/EMSE-data"
 #
 # Then:
 #   export EMSE_STUDY_BASE="$HOME/.refactai/workspaces/ripple_study_runs"

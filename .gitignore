@@ -21,6 +21,9 @@ agents/.env
 **/secrets/
 **/*secret*
 
+# Local agent run cache (not part of the replication package)
+agents/.memory/
+
 # Caches & IDE
 __pycache__/
 *.py[cod]
@@ -32,6 +35,7 @@ __pycache__/
 .cache/
 .npm/
 .gradle/
+*.tsbuildinfo
 
 # Logs & PIDs
 *.log

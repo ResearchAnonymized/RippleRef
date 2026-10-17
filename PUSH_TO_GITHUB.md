@@ -5,7 +5,7 @@ This folder is ready to become its **own** git repository (separate from `Refact
 ## One-time publish
 
 ```bash
-cd /Users/svm648/refactai/RippleREF
+cd /path/to/RippleREF
 
 # optional: review
 find . -iname '*.xlsx'   # must be empty
@@ -30,7 +30,7 @@ git push -u origin main
 After editing files in this folder:
 
 ```bash
-cd /Users/svm648/refactai/RippleREF
+cd /path/to/RippleREF
 git add .
 git commit -m "Describe change"
 git push

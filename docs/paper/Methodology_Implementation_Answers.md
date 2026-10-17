@@ -16,8 +16,8 @@
 
 **Primary RQ3 contrast:** P-MA vs B0-V2 on `(project_id, file_path, model_id)`.
 
-**Analysis workbook:** `/Users/svm648/refactai/.run/EMSE_RAW_MASTER_ALL_RQs.xlsx`  
-**Desktop export folder (when copied):** `/Users/svm648/Desktop/EMSE-Data/EMSE_Master/`
+**Analysis workbook:** `.run/EMSE_RAW_MASTER_ALL_RQs.xlsx` (local study output; not shipped in this package)  
+**Desktop export folder (when copied):** `$HOME/Desktop/EMSE-Data/EMSE_Master/`
 
 For every question below, answers follow the required structure:
 1. Implementation detail  
