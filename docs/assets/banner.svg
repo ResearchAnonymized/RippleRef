@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-label="RippleRef">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -10,12 +11,8 @@
       <stop offset="50%" stop-color="#F0B429" stop-opacity="0.55"/>
       <stop offset="100%" stop-color="#5EEAD4" stop-opacity="0.15"/>
     </linearGradient>
-    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.2"/>
-    </filter>
   </defs>
   <rect width="1280" height="420" fill="url(#bg)"/>
-  <!-- ripple rings -->
   <g fill="none" stroke="url(#ring)" stroke-width="2">
     <circle cx="980" cy="210" r="48"/>
     <circle cx="980" cy="210" r="96" opacity="0.85"/>
@@ -23,7 +20,6 @@
     <circle cx="980" cy="210" r="192" opacity="0.4"/>
     <circle cx="980" cy="210" r="240" opacity="0.22"/>
   </g>
-  <!-- dependency edges -->
   <g stroke="#5EEAD4" stroke-opacity="0.35" stroke-width="1.5" fill="none">
     <path d="M820 120 C880 140, 920 170, 980 210"/>
     <path d="M780 260 C860 250, 920 230, 980 210"/>
@@ -37,10 +33,9 @@
   <circle cx="840" cy="320" r="5" fill="#5EEAD4"/>
   <circle cx="1100" cy="100" r="5" fill="#5EEAD4"/>
   <circle cx="1160" cy="280" r="5" fill="#5EEAD4"/>
-  <!-- brand -->
-  <text x="72" y="168" font-family="Georgia, 'Times New Roman', serif" font-size="72" fill="#F7F4EC" letter-spacing="1">RippleRef</text>
-  <text x="76" y="216" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" fill="#A7F3D0">Repository-level ripple safety for LLM Java refactoring</text>
-  <text x="76" y="268" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16" fill="#CBD5E1">Single-prompt · Multi-agent · Shared L1L5 verifier · Full audit trail</text>
+  <text x="72" y="168" font-family="Georgia, Times New Roman, serif" font-size="72" fill="#F7F4EC">RippleRef</text>
+  <text x="76" y="216" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#A7F3D0">Repository-level ripple safety for LLM Java refactoring</text>
+  <text x="76" y="268" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#CBD5E1">Single-prompt | Multi-agent | Shared L1-L5 verifier | Full audit trail</text>
   <rect x="76" y="300" width="168" height="36" rx="4" fill="#F0B429"/>
-  <text x="92" y="323" font-family="ui-sans-serif, system-ui, sans-serif" font-size="14" font-weight="700" fill="#0B1F2A">OPEN RESEARCH</text>
+  <text x="92" y="323" font-family="Helvetica, Arial, sans-serif" font-size="14" font-weight="700" fill="#0B1F2A">OPEN RESEARCH</text>
 </svg>

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="RippleRef — repository-level ripple safety for LLM Java refactoring" width="100%"/>
+  <img src="docs/assets/banner.png" alt="RippleRef — repository-level ripple safety for LLM Java refactoring" width="100%"/>
 </p>
 
 <p align="center">
@@ -82,7 +82,7 @@ Both modes start from the **same dependency context** and finish on the **same L
 One packaged prompt → **one** LLM completion → extract Java → verify.
 
 <p align="center">
-  <img src="docs/assets/flow-single-prompt.svg" alt="Single-prompt V2 flow" width="100%"/>
+  <img src="docs/assets/flow-single-prompt.png" alt="Single-prompt V2 flow" width="100%"/>
 </p>
 
 ### Multi-agent — LangGraph (P-MA)
@@ -90,7 +90,7 @@ One packaged prompt → **one** LLM completion → extract Java → verify.
 Planner → Editor → agent-side checks → optional revise loop → **same** shared verify.
 
 <p align="center">
-  <img src="docs/assets/flow-multi-agent.svg" alt="Multi-agent LangGraph flow" width="100%"/>
+  <img src="docs/assets/flow-multi-agent.png" alt="Multi-agent LangGraph flow" width="100%"/>
 </p>
 
 | | Single-prompt V2 | Multi-agent MA |
@@ -120,7 +120,7 @@ More detail: [`wiki/Agentic-Systems.md`](wiki/Agentic-Systems.md).
 ## Architecture
 
 <p align="center">
-  <img src="docs/assets/architecture.svg" alt="RippleRef architecture: Control → Generate → Verify → Evidence" width="100%"/>
+  <img src="docs/assets/architecture.png" alt="RippleRef architecture: Control → Generate → Verify → Evidence" width="100%"/>
 </p>
 
 | Stage | What happens |

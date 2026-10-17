@@ -3,7 +3,7 @@
 ## Big picture (read left → right)
 
 <p align="center">
-  <img src="../docs/assets/architecture.svg" alt="RippleRef architecture" width="100%"/>
+  <img src="../docs/assets/architecture.png" alt="RippleRef architecture" width="100%"/>
 </p>
 
 | Stage | Components | Job |
@@ -58,14 +58,14 @@ pair_key = project_id | file_path | model_id | variant
 
 See the dedicated flows in [Agentic systems](Agentic-Systems.md):
 
-- [Single-prompt V2](../docs/assets/flow-single-prompt.svg)  
-- [Multi-agent LangGraph](../docs/assets/flow-multi-agent.svg)  
+- [Single-prompt V2](../docs/assets/flow-single-prompt.png)  
+- [Multi-agent LangGraph](../docs/assets/flow-multi-agent.png)  
 
 <p align="center">
-  <img src="../docs/assets/flow-single-prompt.svg" alt="Single-prompt" width="100%"/>
+  <img src="../docs/assets/flow-single-prompt.png" alt="Single-prompt" width="100%"/>
 </p>
 <p align="center">
-  <img src="../docs/assets/flow-multi-agent.svg" alt="Multi-agent" width="100%"/>
+  <img src="../docs/assets/flow-multi-agent.png" alt="Multi-agent" width="100%"/>
 </p>
 
 ## Web UI entry points
