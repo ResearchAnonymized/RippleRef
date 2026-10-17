@@ -1,30 +1,43 @@
-# RippleREF Wiki
+# RippleRef Wiki
 
-Welcome. This wiki explains how the **RippleREF** platform runs repository-level ripple experiments for LLM Java refactoring.
+<p align="center"><img src="../docs/assets/banner.svg" alt="RippleRef" width="100%"/></p>
 
-## Reading order
+**Most refactoring tools ask: did the file change?**  
+**RippleRef asks: what moved in the dependency graph?**
 
-1. [Setup](Setup.md) — install and run UI / API / agents  
-2. [Architecture](Architecture.md) — components and data flow (diagrams)  
-3. [Agentic systems](Agentic-Systems.md) — single-prompt vs multi-agent  
-4. [Experiment protocol](Experiment-Protocol.md) — cohort, models, L1–L5  
-5. [Replication guide](Replication-Guide.md) — how to run your own study  
+This wiki is the operator manual for the open research stack — Web UI, Spring API, Python / LangGraph agents, and batch scripts.
 
-## Related docs
+## Reading path (30 minutes)
 
-| Doc | Location |
-|-----|----------|
-| Technical setup (deep) | [`../docs/RIPPLE_REF_TECHNICAL_SETUP.md`](../docs/RIPPLE_REF_TECHNICAL_SETUP.md) |
-| B0 integrity | [`../docs/RIPPLE_REF_RESEARCH_INTEGRITY.md`](../docs/RIPPLE_REF_RESEARCH_INTEGRITY.md) |
-| MA integrity | [`../docs/MA_RESEARCH_INTEGRITY.md`](../docs/MA_RESEARCH_INTEGRITY.md) |
-| L5 testing notes | [`../docs/L5_BEHAVIORAL_TESTING_PAPER_REFERENCE.md`](../docs/L5_BEHAVIORAL_TESTING_PAPER_REFERENCE.md) |
-| Paper-facing snapshots | [`../docs/paper/`](../docs/paper/) |
-| Experimental setting | [`EMSE_Experimental_Setting.md`](EMSE_Experimental_Setting.md) |
-| MA architecture narrative | [`EMSE_Multi_Agent_Architecture.md`](EMSE_Multi_Agent_Architecture.md) |
+| # | Page | Payoff |
+|---|------|--------|
+| 1 | [Setup](Setup.md) | UI + API + agents running locally |
+| 2 | [Architecture](Architecture.md) | How generation meets the shared verifier |
+| 3 | [Agentic systems](Agentic-Systems.md) | Single-prompt V2 vs multi-agent loop |
+| 4 | [Experiment protocol](Experiment-Protocol.md) | Cohort thinking, L1–L5, integrity |
+| 5 | [Replication guide](Replication-Guide.md) | Run *your* study without cargo-culting ours |
 
-## Design principles
+## Deep references
 
-- **Same verification path** for single-prompt and multi-agent candidates  
-- **Artifacts first**: prompts, responses, candidates, profiles, ripple reports  
-- **No silent “completed” without stored evidence** in a well-run study  
-- **Code replication package** — results Excel files are not shipped here  
+| Doc | Why open it |
+|-----|-------------|
+| [`../docs/RIPPLE_REF_TECHNICAL_SETUP.md`](../docs/RIPPLE_REF_TECHNICAL_SETUP.md) | Implementation-level truth |
+| [`../docs/RIPPLE_REF_RESEARCH_INTEGRITY.md`](../docs/RIPPLE_REF_RESEARCH_INTEGRITY.md) | B0 rules / risk definitions |
+| [`../docs/MA_RESEARCH_INTEGRITY.md`](../docs/MA_RESEARCH_INTEGRITY.md) | Multi-agent pairing rules |
+| [`../docs/L5_BEHAVIORAL_TESTING_PAPER_REFERENCE.md`](../docs/L5_BEHAVIORAL_TESTING_PAPER_REFERENCE.md) | Test-probe reporting |
+| [`EMSE_Experimental_Setting.md`](EMSE_Experimental_Setting.md) | Experimental setting narrative |
+| [`EMSE_Multi_Agent_Architecture.md`](EMSE_Multi_Agent_Architecture.md) | MA architecture write-up |
+
+## One diagram to remember
+
+```mermaid
+flowchart LR
+  CTX[Dependency context] --> GEN{Generate}
+  GEN -->|B0-V2| SP[Single LLM rewrite]
+  GEN -->|P-MA| MA[LangGraph agents]
+  SP --> V[Shared L1–L5 verify]
+  MA --> V
+  V --> ART[Artifacts + risk labels]
+```
+
+Same verify path → fair SP vs MA science.

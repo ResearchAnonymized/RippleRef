@@ -1,167 +1,259 @@
-# RippleREF
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="RippleRef — repository-level ripple safety for LLM Java refactoring" width="100%"/>
+</p>
 
-**Repository-level ripple safety for LLM-generated Java refactoring**
+<p align="center">
+  <strong>Most LLM refactoring demos stop at the edited file.<br/>RippleRef asks what broke downstream.</strong>
+</p>
 
-RippleREF is an open research platform for running **dependency-aware single-prompt** and **multi-agent (LangGraph)** Java refactoring experiments, then verifying candidates with a layered **L1–L5** ripple protocol (profiles, caller impact, compile/test probes, adoption/risk labels).
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-0B1F2A?style=for-the-badge" alt="MIT"/></a>
+  <a href="wiki/Home.md"><img src="https://img.shields.io/badge/Wiki-Architecture%20%26%20Protocol-1A4D3A?style=for-the-badge" alt="Wiki"/></a>
+  <img src="https://img.shields.io/badge/Java-17+-123A3A?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 17"/>
+  <img src="https://img.shields.io/badge/Python-3.10+-123A3A?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/Next.js-18+-123A3A?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/Agents-LangGraph%20MA-F0B429?style=for-the-badge&labelColor=0B1F2A" alt="LangGraph"/>
+</p>
 
-This repository is a **clean replication package**: Web UI, REST API, Python agents, and run scripts. It does **not** ship study Excel result workbooks. Anyone with API access can re-run a similar experiment on their own cohort.
-
-Public repository: [`ResearchAnonymized/RippleRef`](https://github.com/ResearchAnonymized/RippleRef).
+<p align="center">
+  <a href="#why-rippleref-exists">Why</a> ·
+  <a href="#what-makes-it-different">Innovation</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#study-arms">Study arms</a> ·
+  <a href="wiki/Home.md">Wiki</a> ·
+  <a href="#citation">Cite</a>
+</p>
 
 ---
 
-## What you get
+## Why RippleRef exists
 
-| Layer | Path | Role |
-|-------|------|------|
-| Web UI | `web/app/` | Next.js dashboard — **RIPPLE-REF Study** and **Multi-Agent Study** panels |
-| API | `backend/` | Spring Boot server — cohort scan/select, dependency context, apply-and-verify, artifacts |
-| Agents | `agents/` | Single-prompt (`ripple_ref_study.py`) and multi-agent (`ma_ref_study.py`, `refactor_graph.py`) |
-| Scripts | `scripts/` | Overnight runners, export helpers, cohort bootstrap, MA/RIPPLE pipelines |
-| Docs | `docs/`, `wiki/` | Integrity rules, technical setup, architecture wiki + diagrams |
+A “successful” LLM rewrite of `Foo.java` can still:
+
+- remove a **caller-used** API  
+- shift **inheritance / package / constructors**  
+- compile locally while **breaking dependents**  
+- look complete in Markdown while the Java body is **truncated at the token cap**
+
+RippleRef is a **full-stack research platform** (Web UI + Spring API + Python agents + batch scripts) for measuring that **ripple**: dependency-aware generation, then a shared **L1–L5** verification trail for every candidate.
+
+> This is a **code replication package**. It ships the system you run experiments *with* — not canned Excel result tables.
+
+**Public repo:** [ResearchAnonymized/RippleRef](https://github.com/ResearchAnonymized/RippleRef)
 
 ---
 
-## Architecture (overview)
+## What makes it different
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 1. Dependency-aware generation
+Single-prompt **V2** embeds a **dependency context package** (callers, APIs, structure) — not just “here is a file, please clean it.”
+
+### 2. Two agentic regimes, one truth
+**B0** = one-shot LLM rewrite · **P-MA** = LangGraph plan → edit → verify loop.  
+Both land on the **same** apply-and-verify pipeline so comparisons stay scientific.
+
+</td>
+<td width="50%" valign="top">
+
+### 3. L1–L5 ripple protocol
+Profiles → caller impact → compile probe → contract/dependency signals → behavioral/tests when eligible. Risk and adoption labels leave an **audit trail**, not a vibe score.
+
+### 4. Built for cohorts, not demos
+Study IDs, pair keys, artifact folders, overnight scripts — designed for **hundreds of (project, file, model)** runs with reproducible configuration.
+
+</td>
+</tr>
+</table>
 
 ```mermaid
 flowchart LR
-  UI[Web UI<br/>Next.js] --> API[RippleRef Study API<br/>Spring Boot]
-  UI --> AG[Python Agents<br/>OpenRouter LLMs]
-  AG --> API
-  API --> WS[Study workspace<br/>ripple_study_runs]
-  API --> REPOS[Subject Java repos]
-  AG --> GRAPH[LangGraph MA<br/>plan / edit / verify]
+  subgraph generate [Generate]
+    SP[Single-prompt V2]
+    MA[LangGraph multi-agent]
+  end
+  subgraph verify [Verify — shared]
+    L1[L1 Profiles]
+    L2[L2 Callers]
+    L3[L3 Compile]
+    L4[L4 Contracts]
+    L5[L5 Behavior]
+  end
+  SP --> L1
+  MA --> L1
+  L1 --> L2 --> L3 --> L4 --> L5
+  L5 --> OUT[risk_level · adoption_class · reports]
 ```
-
-Study workflow:
-
-```mermaid
-flowchart TD
-  A[Create study + scan repos] --> B[Select cohort files]
-  B --> C[Build dependency context packages]
-  C --> D{Condition}
-  D -->|B0-V2 single-prompt| E[One LLM rewrite]
-  D -->|P-MA multi-agent| F[LangGraph agent loop]
-  E --> G[Persist prompt / response / candidate]
-  F --> G
-  G --> H[Apply-and-verify L1–L5]
-  H --> I[CSV / JSON results + reports]
-```
-
-More diagrams: [`wiki/Architecture.md`](wiki/Architecture.md).
 
 ---
 
-## Requirements
+## Repository map
 
-- **Java 17+**, **Maven 3.8+**
-- **Node.js 18+** (Web UI)
-- **Python 3.10+** (agents)
-- **OpenRouter API key** (or compatible OpenAI-style endpoint)
-- Disk space for cloned subject repositories and study artifacts under `~/.refactai/`
+| Layer | Path | You use it to… |
+|------|------|----------------|
+| **Web UI** | [`web/app/`](web/app/) | Drive **RIPPLE-REF Study** & **Multi-Agent Study** from the dashboard |
+| **API** | [`backend/`](backend/) | Scan repos, select files, build contexts, apply-and-verify, store artifacts |
+| **Agents** | [`agents/`](agents/) | Run B0 (`ripple_ref_study.py`) and MA (`ma_ref_study.py` + `refactor_graph.py`) |
+| **Scripts** | [`scripts/`](scripts/) | Overnight batches, preflight, pipeline helpers |
+| **Wiki** | [`wiki/`](wiki/Home.md) | Setup, architecture diagrams, protocol, replication playbook |
+| **Deep docs** | [`docs/`](docs/) | Integrity rules + technical setup |
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TB
+  Researcher((Researcher))
+
+  subgraph surface [Operator surface]
+    UI[Next.js dashboard]
+    SH[Batch scripts]
+  end
+
+  subgraph brain [Generation]
+    AG[Python agents]
+    LG[LangGraph MA]
+    LLM[[OpenRouter LLMs]]
+  end
+
+  subgraph spine [Verification spine]
+    API[Spring Boot · port 8083]
+    RV[RippleRef verifiers L1–L5]
+  end
+
+  subgraph disk [Evidence store]
+    RUN[("ripple_study_runs / pair_key artifacts")]
+    REPOS[(Subject Java workspaces)]
+  end
+
+  Researcher --> UI
+  Researcher --> SH
+  UI --> API
+  UI --> AG
+  SH --> AG
+  SH --> API
+  AG --> LLM
+  AG --> LG
+  LG --> LLM
+  AG --> API
+  API --> RV
+  API --> REPOS
+  API --> RUN
+```
+
+**Candidate identity**
+
+```text
+pair_key = project_id | file_path | model_id | variant
+```
+
+Artifacts (prompts, responses, candidates, before/after profiles, ripple & behavioral reports) hang off that key. Details: [`wiki/Architecture.md`](wiki/Architecture.md).
 
 ---
 
 ## Quick start
 
-### 1. Configure secrets (never commit)
+### Requirements
+
+Java **17+** · Maven **3.8+** · Node.js **18+** · Python **3.10+** · OpenRouter (or compatible) API key
+
+### 1 — Secrets
 
 ```bash
 cp agents/.env.example agents/.env
-# Edit agents/.env — set OPENROUTER_API_KEY and model IDs
+# set OPENROUTER_API_KEY and pin model slugs
 ```
 
-### 2. Backend API
+### 2 — API (port **8083**)
 
 ```bash
 cd backend
 mvn -pl server -am package -DskipTests
-# Run the Spring Boot server (see wiki/Setup.md for the exact main class / port)
+# run ai.refact.server.RefactAIServerApplication
 ```
 
-Default API port is **8083** (`backend/server/src/main/resources/application.yml`).
-
-### 3. Python agents
+### 3 — Agents
 
 ```bash
 cd agents
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-./start.sh   # or: python main.py
+./start.sh
 ```
 
-### 4. Web UI
+### 4 — Web UI
 
 ```bash
 cd web/app
 npm install
 npm run dev
-# open http://localhost:3001 — use RIPPLE-REF Study / Multi-Agent Study
+# → http://localhost:3001  →  RIPPLE-REF Study / Multi-Agent Study
 ```
 
-### 5. Scripted study runs (optional)
+Step-by-step troubleshooting: [`wiki/Setup.md`](wiki/Setup.md).
 
-See `scripts/run-ripple-ref-master-overnight.sh`, `scripts/run-ma-ref-master-overnight.sh`, and `scripts/ripple-ref-lib.sh`. Read flags before launching — full cohort runs are **long and billable** (LLM tokens).
+> Full cohort overnight runs are **long and billable**. Start with a one-file smoke test ([`wiki/Replication-Guide.md`](wiki/Replication-Guide.md)).
 
 ---
 
-## Experiment conditions (paper terms)
+## Study arms
 
-| Paper term | Study ID | Variant |
-|------------|----------|---------|
-| Single-prompt (dependency-aware) | `ripple_ref_master` | `V2` |
-| Single-prompt ablation | `ripple_ref_master` | `V1` |
-| Multi-agent | `ma_ref_master` | `MA` |
+| Paper term | Study ID | Variant | Generation |
+|------------|----------|---------|------------|
+| Single-prompt (dependency-aware) | `ripple_ref_master` | `V2` | One LLM call + dependency context |
+| Single-prompt ablation | `ripple_ref_master` | `V1` | Ablation prompt packaging |
+| Multi-agent | `ma_ref_master` | `MA` | LangGraph plan / edit / verify |
 
-Verification uses the shared ripple path (regex profiles, caller checks, compile/test probes). Details: [`docs/RIPPLE_REF_RESEARCH_INTEGRITY.md`](docs/RIPPLE_REF_RESEARCH_INTEGRITY.md), [`docs/MA_RESEARCH_INTEGRITY.md`](docs/MA_RESEARCH_INTEGRITY.md).
+Primary scientific contrast: **P-MA vs B0-V2** on matched `(project, file, model)` pairs — same verifier.
+
+Integrity: [`docs/RIPPLE_REF_RESEARCH_INTEGRITY.md`](docs/RIPPLE_REF_RESEARCH_INTEGRITY.md) · [`docs/MA_RESEARCH_INTEGRITY.md`](docs/MA_RESEARCH_INTEGRITY.md)
 
 ---
 
 ## Wiki
 
-| Page | Content |
-|------|---------|
-| [`wiki/Home.md`](wiki/Home.md) | Start here |
-| [`wiki/Setup.md`](wiki/Setup.md) | Install & run |
-| [`wiki/Architecture.md`](wiki/Architecture.md) | System + MA diagrams |
-| [`wiki/Experiment-Protocol.md`](wiki/Experiment-Protocol.md) | Cohort, models, L1–L5 |
-| [`wiki/Agentic-Systems.md`](wiki/Agentic-Systems.md) | Single-prompt vs LangGraph MA |
-| [`wiki/Replication-Guide.md`](wiki/Replication-Guide.md) | How to replicate a similar study |
+| Start here | Then |
+|------------|------|
+| [Home](wiki/Home.md) | [Setup](wiki/Setup.md) |
+| [Architecture](wiki/Architecture.md) | [Agentic systems](wiki/Agentic-Systems.md) |
+| [Experiment protocol](wiki/Experiment-Protocol.md) | [Replication guide](wiki/Replication-Guide.md) |
 
 ---
 
-## What is intentionally not included
+## Design stance
 
-- Study **Excel / CSV result dumps** (analysis workbooks)
-- API keys and `.env` files
-- `node_modules/`, Python `.venv/`, Maven `target/`
-- ICSE / REFINE smell-effectiveness product tree
-- Full historical `~/.refactai/workspaces/ripple_study_runs/` artifact stores
+| We optimize for | We refuse to fake |
+|-----------------|-------------------|
+| Traceable candidates | “It compiled in the chat window” |
+| Matched SP vs MA protocols | Silent protocol drift mid-study |
+| Explicit token / model pins | Undocumented provider defaults |
+| Open code others can rerun | Shipping private Excel as “the science” |
+
+**Not in this repo:** result workbooks, API keys, `node_modules` / `.venv`, ICSE/REFINE smell-product trees, raw multi-GB study dumps.
 
 ---
 
 ## Citation
 
-If you use RippleREF in academic work, cite the associated paper (update `CITATION.cff` when the venue/DOI is final) and this software repository.
+```bibtex
+@software{RippleRef,
+  title        = {RippleRef: Repository-level ripple safety for LLM-generated Java refactoring},
+  author       = {{Research Anonymized}},
+  year         = {2026},
+  url          = {https://github.com/ResearchAnonymized/RippleRef},
+  license      = {MIT}
+}
+```
+
+Update [`CITATION.cff`](CITATION.cff) when the paper DOI is available.
 
 ---
 
 ## License
 
-See [`LICENSE`](LICENSE). Derived from the RefactAI research codebase; packaging focuses on the RippleREF / MA-REF experimental surface.
-
----
-
-## Pushing to GitHub (when ready)
-
-```bash
-cd /Users/svm648/refactai/RippleREF
-git init
-git add .
-git commit -m "Initial RippleREF replication package (UI, API, agents, scripts, wiki)"
-git branch -M main
-git remote add origin https://github.com/ResearchAnonymized/RippleRef.git
-git push -u origin main
-```
+[MIT](LICENSE) — open research use welcome. Fork it, instrument it, break it on *your* corpus — then measure the ripples.
