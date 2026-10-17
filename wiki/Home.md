@@ -1,6 +1,6 @@
 # RippleRef Wiki
 
-<p align="center"><img src="../docs/assets/banner.png" alt="RippleRef" width="100%"/></p>
+<p align="center"><img src="../docs/assets/banner.gif" alt="RippleRef" width="100%"/></p>
 
 **Most refactoring tools ask: did the file change?**  
 **RippleRef asks: what moved in the dependency graph?**
@@ -31,7 +31,7 @@ This wiki is the operator manual for the open research stack — Web UI, Spring 
 ## One picture to remember
 
 <p align="center">
-  <img src="../docs/assets/architecture.png" alt="Control → Generate → Verify → Evidence" width="100%"/>
+  <img src="../docs/assets/architecture.gif" alt="Control → Generate → Verify → Evidence" width="100%"/>
 </p>
 
 Same verify path for single-prompt and multi-agent → fair science. More detail: [Architecture](Architecture.md).

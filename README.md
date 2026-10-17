@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/banner.png" alt="RippleRef — repository-level ripple safety for LLM Java refactoring" width="100%"/>
+  <img src="docs/assets/banner.gif" alt="RippleRef — repository-level ripple safety for LLM Java refactoring" width="100%"/>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ More detail: [`wiki/Agentic-Systems.md`](wiki/Agentic-Systems.md).
 ## Architecture
 
 <p align="center">
-  <img src="docs/assets/architecture.png" alt="RippleRef architecture: Control → Generate → Verify → Evidence" width="100%"/>
+  <img src="docs/assets/architecture.gif" alt="RippleRef architecture: Control → Generate → Verify → Evidence" width="100%"/>
 </p>
 
 | Stage | What happens |

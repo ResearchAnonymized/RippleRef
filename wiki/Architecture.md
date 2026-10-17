@@ -3,7 +3,7 @@
 ## Big picture (read left → right)
 
 <p align="center">
-  <img src="../docs/assets/architecture.png" alt="RippleRef architecture" width="100%"/>
+  <img src="../docs/assets/architecture.gif" alt="RippleRef architecture" width="100%"/>
 </p>
 
 | Stage | Components | Job |
