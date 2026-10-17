@@ -1,113 +1,71 @@
 # Architecture
 
-## System context
+## Big picture (read left → right)
 
-```mermaid
-flowchart TB
-  subgraph operators [Operators]
-    RES[Researcher]
-  end
-  subgraph rippleref [RippleREF package]
-    UI[Next.js Web UI]
-    API[Spring Boot API]
-    AG[Python Agents]
-    SCR[Bash / Python scripts]
-  end
-  subgraph external [External]
-    LLM[OpenRouter / LLM providers]
-    GIT[Subject GitHub Java repos]
-  end
-  subgraph storage [Local storage]
-    WS["~/.refactai/workspaces"]
-    RUN["ripple_study_runs/<study>"]
-  end
-  RES --> UI
-  RES --> SCR
-  UI --> API
-  UI --> AG
-  SCR --> API
-  SCR --> AG
-  AG --> LLM
-  AG --> API
-  API --> GIT
-  API --> WS
-  API --> RUN
-```
+<p align="center">
+  <img src="../docs/assets/architecture.svg" alt="RippleRef architecture" width="100%"/>
+</p>
+
+| Stage | Components | Job |
+|-------|------------|-----|
+| **Control** | Next.js UI, batch scripts | Configure studies, launch runs |
+| **Generate** | Python agents, LangGraph, OpenRouter | Produce candidates (B0 or MA) |
+| **Verify** | Spring Boot API (`:8083`), L1–L5 | Score ripple / risk for every candidate |
+| **Evidence** | `ripple_study_runs/…` | Persist prompts, code, profiles, reports |
+
+Same verify path for both generation modes → fair comparisons.
 
 ## Component map
 
 | Component | Tech | Responsibility |
 |-----------|------|----------------|
-| Web UI | Next.js / React | Study configuration, progress, results tables, MA pipeline view |
-| Study API | Spring Boot | Repo scan, file selection, dependency context, verify, artifact I/O |
+| Web UI | Next.js / React | Study panels, progress, results |
+| Study API | Spring Boot | Scan, select, context, verify, artifacts |
 | Agents | Python + LangGraph | LLM generation (B0 and MA) |
-| Scripts | Bash/Python | Batch overnight runs, backfills, exports |
-| Workspaces | Filesystem | Cloned repos + per-candidate artifacts |
+| Scripts | Bash / Python | Overnight / pipeline automation |
+| Workspaces | Filesystem | Subject repos + study artifacts |
 
-## Backend ripple package
+## Backend verify chain
 
 ```mermaid
 flowchart LR
-  CTRL[RippleRefStudyController] --> SVC[RippleRefStudyService]
-  SVC --> SEL[FileSelector / ProductionClassifier]
-  SVC --> SCAN[DependencyScanner]
-  SVC --> CTX[ContextBuilder]
-  SVC --> EXT[JavaProfileExtractor]
-  SVC --> VER[RippleVerifier]
-  VER --> L2[CallerImpactAnalyzer]
-  VER --> L3[CompileProbe]
-  VER --> L5[TestProbe / BehavioralVerifier]
+  API[Study API] --> EXT[Profiles]
+  EXT --> L2[Callers]
+  L2 --> L3[Compile]
+  L3 --> L4[Contracts]
+  L4 --> L5[Tests]
+  L5 --> OUT[Reports]
 ```
 
-Profiling is **regex / textual** (not JavaParser/JDT on the study path). Smell eligibility may use **PMD**. See `docs/RIPPLE_REF_TECHNICAL_SETUP.md`.
+Profiling on the study path is **regex / textual** (not JavaParser/JDT). Smell eligibility may use **PMD**. See `docs/RIPPLE_REF_TECHNICAL_SETUP.md`.
 
-## Artifact layout (per study)
+## Artifacts (per study)
 
 ```text
 ripple_study_runs/<study_id>/
-  results_candidates.csv
-  results_candidates.json
-  prompts/
-  model_responses/
-  generated_candidates/
+  results_candidates.csv | .json
+  prompts/  model_responses/  generated_candidates/
   before_profiles/  after_profiles/
-  ripple_reports/   behavioral_reports/
-  dependency_contexts/
-  diffs/  original_files/  agent_traces/  ...
+  ripple_reports/  behavioral_reports/
+  dependency_contexts/  diffs/  agent_traces/  ...
 ```
-
-Identity key:
 
 ```text
 pair_key = project_id | file_path | model_id | variant
 ```
 
-## Single-prompt vs multi-agent path
+## B0 vs MA (same landing zone)
 
 ```mermaid
-sequenceDiagram
-  participant UI
-  participant AG as Agents
-  participant API as Study API
-  participant LLM
-  UI->>API: create study / select cohort / build contexts
-  alt B0-V2
-    UI->>AG: run ripple_ref candidate
-    AG->>API: fetch dependency context
-    AG->>LLM: V2 prompt + source
-    LLM-->>AG: candidate text
-    AG->>API: store prompt/response/candidate
-  else P-MA
-    UI->>AG: run ma_ref candidate
-    AG->>AG: LangGraph plan/edit/verify loop
-    AG->>LLM: multiple agent calls
-    AG->>API: store artifacts / traces
-  end
-  AG->>API: apply-and-verify
-  API-->>UI: risk / adoption / reports
+flowchart LR
+  CTX[Dependency context] --> B0[B0: one LLM call]
+  CTX --> MA[MA: plan → edit → verify]
+  B0 --> V[apply-and-verify]
+  MA --> V
+  V --> UI[UI / CSV results]
 ```
 
 ## Web UI entry points
 
-- Dashboard nav: **RIPPLE-REF Study**, **Multi-Agent Study**  
-- Panels: `RippleRefStudyPanel`, `MaRefStudyPanel`, results tables, L5 pipeline panels  
+- Dashboard: **RIPPLE-REF Study**, **Multi-Agent Study**  
+- Panels: `RippleRefStudyPanel`, `MaRefStudyPanel`, results + L5 views  

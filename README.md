@@ -72,21 +72,9 @@ Study IDs, pair keys, artifact folders, overnight scripts — designed for **hun
 
 ```mermaid
 flowchart LR
-  subgraph generate [Generate]
-    SP[Single-prompt V2]
-    MA[LangGraph multi-agent]
-  end
-  subgraph verify [Verify — shared]
-    L1[L1 Profiles]
-    L2[L2 Callers]
-    L3[L3 Compile]
-    L4[L4 Contracts]
-    L5[L5 Behavior]
-  end
-  SP --> L1
-  MA --> L1
-  L1 --> L2 --> L3 --> L4 --> L5
-  L5 --> OUT[risk_level · adoption_class · reports]
+  SP[Single-prompt V2] --> V[Shared L1–L5 verify]
+  MA[LangGraph MA] --> V
+  V --> R[risk · adoption · reports]
 ```
 
 ---
@@ -106,54 +94,22 @@ flowchart LR
 
 ## Architecture
 
-```mermaid
-flowchart TB
-  Researcher((Researcher))
+<p align="center">
+  <img src="docs/assets/architecture.svg" alt="RippleRef architecture: Control → Generate → Verify → Evidence" width="100%"/>
+</p>
 
-  subgraph surface [Operator surface]
-    UI[Next.js dashboard]
-    SH[Batch scripts]
-  end
-
-  subgraph brain [Generation]
-    AG[Python agents]
-    LG[LangGraph MA]
-    LLM[[OpenRouter LLMs]]
-  end
-
-  subgraph spine [Verification spine]
-    API[Spring Boot · port 8083]
-    RV[RippleRef verifiers L1–L5]
-  end
-
-  subgraph disk [Evidence store]
-    RUN[("ripple_study_runs / pair_key artifacts")]
-    REPOS[(Subject Java workspaces)]
-  end
-
-  Researcher --> UI
-  Researcher --> SH
-  UI --> API
-  UI --> AG
-  SH --> AG
-  SH --> API
-  AG --> LLM
-  AG --> LG
-  LG --> LLM
-  AG --> API
-  API --> RV
-  API --> REPOS
-  API --> RUN
-```
-
-**Candidate identity**
+| Stage | What happens |
+|-------|----------------|
+| **1 · Control** | Researcher uses the **Web UI** or **scripts** |
+| **2 · Generate** | **Single-prompt V2** *or* **LangGraph MA** produces a candidate |
+| **3 · Verify** | **Same** Spring API path runs **L1–L5** ripple checks |
+| **4 · Evidence** | Artifacts stored under `pair_key` with risk / adoption labels |
 
 ```text
 pair_key = project_id | file_path | model_id | variant
 ```
 
-Artifacts (prompts, responses, candidates, before/after profiles, ripple & behavioral reports) hang off that key. Details: [`wiki/Architecture.md`](wiki/Architecture.md).
-
+Deeper detail: [`wiki/Architecture.md`](wiki/Architecture.md).
 ---
 
 ## Quick start

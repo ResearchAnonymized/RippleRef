@@ -28,16 +28,10 @@ This wiki is the operator manual for the open research stack — Web UI, Spring 
 | [`EMSE_Experimental_Setting.md`](EMSE_Experimental_Setting.md) | Experimental setting narrative |
 | [`EMSE_Multi_Agent_Architecture.md`](EMSE_Multi_Agent_Architecture.md) | MA architecture write-up |
 
-## One diagram to remember
+## One picture to remember
 
-```mermaid
-flowchart LR
-  CTX[Dependency context] --> GEN{Generate}
-  GEN -->|B0-V2| SP[Single LLM rewrite]
-  GEN -->|P-MA| MA[LangGraph agents]
-  SP --> V[Shared L1–L5 verify]
-  MA --> V
-  V --> ART[Artifacts + risk labels]
-```
+<p align="center">
+  <img src="../docs/assets/architecture.svg" alt="Control → Generate → Verify → Evidence" width="100%"/>
+</p>
 
-Same verify path → fair SP vs MA science.
+Same verify path for single-prompt and multi-agent → fair science. More detail: [Architecture](Architecture.md).
