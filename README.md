@@ -79,18 +79,18 @@ Both modes start from the **same dependency context** and finish on the **same L
 
 ### Prompt-based — Single-prompt V2 (B0)
 
-One packaged prompt → **one** LLM completion → extract Java → verify.
+One packaged prompt → **one** LLM completion → extract Java → verify. *(animated)*
 
 <p align="center">
-  <img src="docs/assets/flow-single-prompt.png" alt="Single-prompt V2 flow" width="100%"/>
+  <img src="docs/assets/flow-single-prompt.gif" alt="Animated single-prompt V2 flow" width="100%"/>
 </p>
 
 ### Multi-agent — LangGraph (P-MA)
 
-Planner → Editor → agent-side checks → optional revise loop → **same** shared verify.
+Planner → Editor → agent-side checks → optional revise loop → **same** shared verify. *(animated — watch the revise loop)*
 
 <p align="center">
-  <img src="docs/assets/flow-multi-agent.png" alt="Multi-agent LangGraph flow" width="100%"/>
+  <img src="docs/assets/flow-multi-agent.gif" alt="Animated multi-agent LangGraph flow" width="100%"/>
 </p>
 
 | | Single-prompt V2 | Multi-agent MA |

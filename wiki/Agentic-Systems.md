@@ -5,11 +5,11 @@ RippleRef supports **two generation modes**. They share dependency context up fr
 ## Side-by-side
 
 <p align="center">
-  <img src="../docs/assets/flow-single-prompt.png" alt="Single-prompt V2" width="100%"/>
+  <img src="../docs/assets/flow-single-prompt.gif" alt="Single-prompt V2" width="100%"/>
 </p>
 
 <p align="center">
-  <img src="../docs/assets/flow-multi-agent.png" alt="Multi-agent MA" width="100%"/>
+  <img src="../docs/assets/flow-multi-agent.gif" alt="Multi-agent MA" width="100%"/>
 </p>
 
 | | Single-prompt (B0-V2) | Multi-agent (P-MA) |

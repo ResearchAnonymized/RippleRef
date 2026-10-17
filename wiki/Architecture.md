@@ -58,14 +58,14 @@ pair_key = project_id | file_path | model_id | variant
 
 See the dedicated flows in [Agentic systems](Agentic-Systems.md):
 
-- [Single-prompt V2](../docs/assets/flow-single-prompt.png)  
-- [Multi-agent LangGraph](../docs/assets/flow-multi-agent.png)  
+- [Single-prompt V2](../docs/assets/flow-single-prompt.gif)  
+- [Multi-agent LangGraph](../docs/assets/flow-multi-agent.gif)  
 
 <p align="center">
-  <img src="../docs/assets/flow-single-prompt.png" alt="Single-prompt" width="100%"/>
+  <img src="../docs/assets/flow-single-prompt.gif" alt="Single-prompt" width="100%"/>
 </p>
 <p align="center">
-  <img src="../docs/assets/flow-multi-agent.png" alt="Multi-agent" width="100%"/>
+  <img src="../docs/assets/flow-multi-agent.gif" alt="Multi-agent" width="100%"/>
 </p>
 
 ## Web UI entry points
